@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =====================
+// Core Domain Models
+// =====================
+
+model Category {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique @map("normalized_name")
+  category       String?
+  thumbnailUrl   String?  @map("thumbnail_url")
+  thumbnailUrls  Json     @default("[]") @map("thumbnail_urls")
+  productUrl     String?  @map("product_url")
+  affiliateUrl   String?  @map("affiliate_url")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  videos   Video[]
+  rankings ProductRanking[]
+  clicks   LinkClick[]
+
+  @@index([category])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("products")
+}
+
+model Video {
+  id              String    @id @default(cuid())
+  youtubeId       String    @unique @map("youtube_id")
+  productId       String    @map("product_id")
+  title           String
+  description     String?
+  channelId       String    @map("channel_id")
+  channelName     String    @map("channel_name")
+  subscriberCount Int?      @map("subscriber_count")
+  publishedAt     DateTime  @map("published_at")
+  videoType       VideoType @default(REGULAR) @map("video_type")
+  thumbnailUrl    String?   @map("thumbnail_url")
+  duration        Int?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  metrics VideoMetric[]
+  clicks  LinkClick[]
+
+  @@index([productId])
+  @@index([channelId])
+  @@index([publishedAt])
+  @@index([videoType])
+  @@index([isActive])
+  @@map("videos")
+}
+
+enum VideoType {
+  REGULAR
+  SHORTS
+}
+
+model VideoMetric {
+  id              String   @id @default(cuid())
+  videoId         String   @map("video_id")
+  collectedAt     DateTime @map("collected_at")
+  viewCount       Int      @map("view_count")
+  likeCount       Int      @map("like_count")
+  commentCount    Int      @map("comment_count")
+  subscriberCount Int?     @map("subscriber_count")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, collectedAt])
+  @@index([collectedAt])
+  @@index([videoId, collectedAt(sort: Desc)])
+  @@map("video_metrics")
+}
+
+// =====================
+// Ranking Models
+// =====================
+
+model RankingPeriod {
+  id         String     @id @default(cuid())
+  periodType PeriodType @map("period_type")
+  year       Int
+  month      Int?
+  day        Int?
+  hourSlot   Int?       @map("hour_slot")
+  startedAt  DateTime   @map("started_at")
+  endedAt    DateTime   @map("ended_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  rankings ProductRanking[]
+
+  @@unique([periodType, year, month, day, hourSlot])
+  @@index([periodType, year])
+  @@index([periodType, year, month])
+  @@index([periodType, year, month, day])
+  @@index([startedAt, endedAt])
+  @@map("ranking_periods")
+}
+
+enum PeriodType {
+  YEARLY
+  MONTHLY
+  DAILY
+  FOUR_HOURLY
+}
+
+model ProductRanking {
+  id            String   @id @default(cuid())
+  productId     String   @map("product_id")
+  periodId      String   @map("period_id")
+  rank          Int
+  previousRank  Int?     @map("previous_rank")
+  score         Float
+  totalViews    Int      @map("total_views")
+  totalLikes    Int      @map("total_likes")
+  totalComments Int      @map("total_comments")
+  videoCount    Int      @map("video_count")
+  avgEngagement Float    @map("avg_engagement")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  period  RankingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, periodId])
+  @@index([periodId, rank])
+  @@index([periodId, score(sort: Desc)])
+  @@map("product_rankings")
+}
+
+// =====================
+// Analytics Models
+// =====================
+
+model LinkClick {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  videoId   String?  @map("video_id")
+  clickedAt DateTime @default(now()) @map("clicked_at")
+  referrer  String?
+  userAgent String?  @map("user_agent")
+  ipHash    String?  @map("ip_hash")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  video   Video?  @relation(fields: [videoId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([clickedAt])
+  @@index([productId, clickedAt])
+  @@map("link_clicks")
+}
+
+model PageView {
+  id        String   @id @default(cuid())
+  page      String
+  productId String?  @map("product_id")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+  referrer  String?
+  userAgent String?  @map("user_agent")
+
+  @@index([page])
+  @@index([viewedAt])
+  @@index([productId])
+  @@map("page_views")
+}
+
+model AdminAction {
+  id          String   @id @default(cuid())
+  actionType  String   @map("action_type")
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id")
+  details     Json?
+  performedAt DateTime @default(now()) @map("performed_at")
+
+  @@index([actionType])
+  @@index([performedAt])
+  @@map("admin_actions")
+}
+
+// =====================
+// System Models
+// =====================
+
+model CollectionJob {
+  id          String    @id @default(cuid())
+  status      JobStatus @default(PENDING)
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  videosFound Int       @default(0) @map("videos_found")
+  videosAdded Int       @default(0) @map("videos_added")
+  errorLog    String?   @map("error_log")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("collection_jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}
