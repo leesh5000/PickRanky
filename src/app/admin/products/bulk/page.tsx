@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCategories } from "@/hooks/useCategories";
 import { parseCoupangHtml, CoupangProduct, ParseResult } from "@/lib/coupang/parser";
+import { useMultiFormPersist } from "@/hooks/useFormPersist";
 
 interface VideoResult {
   videoId: string;
@@ -100,24 +101,69 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+// Sort videos by score -> viewCount -> likeCount
+const sortVideos = (videos: VideoResult[]): VideoResult[] => {
+  return [...videos].sort((a, b) => {
+    if (b.previewScore !== a.previewScore) return b.previewScore - a.previewScore;
+    if (b.viewCount !== a.viewCount) return b.viewCount - a.viewCount;
+    return b.likeCount - a.likeCount;
+  });
+};
+
 export default function BulkProductPage() {
   const router = useRouter();
   const { data: categories } = useCategories();
 
-  // Step 1: HTML Input
-  const [htmlInput, setHtmlInput] = useState("");
+  // Persistent form state
+  const {
+    values: persistedState,
+    setValue: setPersistedValue,
+    setValues: setPersistedState,
+    clearSavedData,
+    isInitialized,
+  } = useMultiFormPersist<{
+    htmlInput: string;
+    defaultCategory: string;
+    products: ProductWithVideos[];
+    activeProductId: string | null;
+    searchResults: Record<string, VideoResult[]>;
+  }>("admin-bulk-product-form", {
+    htmlInput: "",
+    defaultCategory: "",
+    products: [],
+    activeProductId: null,
+    searchResults: {},
+  });
+
+  // Extract values
+  const htmlInput = persistedState.htmlInput;
+  const defaultCategory = persistedState.defaultCategory;
+  const products = persistedState.products;
+  const activeProductId = persistedState.activeProductId;
+  const searchResults = persistedState.searchResults;
+
+  // Setters
+  const setHtmlInput = (value: string) => setPersistedValue("htmlInput", value);
+  const setDefaultCategory = (value: string) => setPersistedValue("defaultCategory", value);
+  const setProducts = (value: ProductWithVideos[] | ((prev: ProductWithVideos[]) => ProductWithVideos[])) => {
+    if (typeof value === "function") {
+      setPersistedState((prev) => ({ ...prev, products: value(prev.products) }));
+    } else {
+      setPersistedValue("products", value);
+    }
+  };
+  const setActiveProductId = (value: string | null) => setPersistedValue("activeProductId", value);
+  const setSearchResults = (value: Record<string, VideoResult[]> | ((prev: Record<string, VideoResult[]>) => Record<string, VideoResult[]>)) => {
+    if (typeof value === "function") {
+      setPersistedState((prev) => ({ ...prev, searchResults: value(prev.searchResults) }));
+    } else {
+      setPersistedValue("searchResults", value);
+    }
+  };
+
+  // Non-persistent state
   const [parseError, setParseError] = useState("");
   const [parseWarning, setParseWarning] = useState("");
-
-  // Step 2: Parsed Products
-  const [products, setProducts] = useState<ProductWithVideos[]>([]);
-  const [defaultCategory, setDefaultCategory] = useState("");
-
-  // Step 3: Video Selection
-  const [activeProductId, setActiveProductId] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<Record<string, VideoResult[]>>({});
-
-  // Step 4: Registration
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationResults, setRegistrationResults] = useState<{
     success: number;
@@ -184,9 +230,11 @@ export default function BulkProductPage() {
     try {
       const result = await searchYouTubeVideos(product.searchQuery);
       if (result.success && result.data?.videos) {
+        // Sort by score -> viewCount -> likeCount
+        const sortedVideos = sortVideos(result.data.videos);
         setSearchResults((prev) => ({
           ...prev,
-          [productId]: result.data.videos,
+          [productId]: sortedVideos,
         }));
       }
     } catch (err) {
@@ -252,6 +300,11 @@ export default function BulkProductPage() {
 
     setIsRegistering(false);
     setRegistrationResults({ success, failed });
+
+    // Clear saved data if all products are registered
+    if (failed === 0 && success > 0) {
+      clearSavedData();
+    }
   };
 
   const selectedCount = products.filter((p) => p.selected).length;
@@ -260,17 +313,25 @@ export default function BulkProductPage() {
   ).length;
   const registeredCount = products.filter((p) => p.isRegistered).length;
 
+  if (!isInitialized) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">상품 일괄 등록</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold">상품 일괄 등록</h1>
+          <p className="text-sm text-muted-foreground">
             쿠팡 페이지에서 복사한 HTML로 여러 상품을 한번에 등록합니다.
           </p>
         </div>
         <Link href="/admin/products">
-          <Button variant="outline">상품 목록</Button>
+          <Button variant="outline" size="sm">상품 목록</Button>
         </Link>
       </div>
 
@@ -355,11 +416,11 @@ export default function BulkProductPage() {
         <>
           <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-base sm:text-lg">
                   Step 2: 상품 목록 ({products.length}개)
                 </CardTitle>
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm">
                   <span>선택: {selectedCount}개</span>
                   <span>준비 완료: {readyCount}개</span>
                   {registeredCount > 0 && (
@@ -381,18 +442,18 @@ export default function BulkProductPage() {
                         : "bg-muted/50 opacity-60"
                     }`}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       {/* Checkbox */}
                       <input
                         type="checkbox"
                         checked={product.selected}
                         onChange={() => toggleProduct(product.id)}
                         disabled={product.isRegistered}
-                        className="mt-1"
+                        className="mt-1 flex-shrink-0"
                       />
 
                       {/* Image */}
-                      <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0">
                         {product.imageUrl ? (
                           <img
                             src={product.imageUrl}

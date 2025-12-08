@@ -9,6 +9,15 @@ PickTrend is a trending shopping product ranking service that:
 - Ranks products by calculated score (views, engagement, virality, recency)
 - Categories: electronics, beauty, appliances, food (Korean market focus)
 
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Database**: PostgreSQL with Prisma ORM
+- **Styling**: Tailwind CSS + Radix UI primitives
+- **State**: React Query (server) + Zustand (client)
+- **Auth**: NextAuth.js with Credentials provider
+- **APIs**: YouTube Data API v3, Coupang affiliate
+
 ## Commands
 
 ```bash
@@ -47,6 +56,8 @@ npm run db:studio    # Open Prisma Studio GUI
 - `src/lib/coupang/parser.ts` - Coupang HTML/JSON parser for bulk registration
 - `src/app/admin/products/new/page.tsx` - Single product registration UI
 - `src/app/admin/products/bulk/page.tsx` - Bulk product registration UI
+- `src/hooks/useFormPersist.ts` - localStorage-based form persistence with debouncing
+- `src/hooks/useCategories.ts` - Category fetching hook with React Query
 
 ### Score Algorithm (100 Points Max)
 
@@ -91,18 +102,43 @@ Admin-only NextAuth.js with Credentials provider:
 ### Database Schema
 
 Core models in `prisma/schema.prisma`:
+- `Category` - Dynamic categories with sort order and active flag
 - `Product` - Products with normalized names and affiliate links
-- `Video` - YouTube videos linked to products
-- `VideoMetric` - Video metrics (views, likes, comments) at registration time
-- `RankingPeriod` - Time periods (YEARLY, MONTHLY, DAILY, FOUR_HOURLY)
-- `ProductRanking` - Ranked products per period
+- `Video` - YouTube videos linked to products (REGULAR or SHORTS)
+- `VideoMetric` - Video metrics (views, likes, comments) at collection time
+- `RankingPeriod` - Ranking periods (YEARLY, MONTHLY, DAILY, FOUR_HOURLY)
+- `ProductRanking` - Ranked products per period with score breakdown
 - `LinkClick` / `PageView` - Analytics tracking
+- `AdminAction` - Admin action audit log
+- `CollectionJob` - Background job status tracking
 - `SystemConfig` - Key-value system configuration
+
+### Form State Persistence
+
+Admin product registration forms persist data to localStorage:
+- Survives page refresh and browser back/forward navigation
+- Uses `useMultiFormPersist` hook with 500ms debounce
+- Cleared automatically on successful submission
+- Storage keys: `admin-product-form`, `admin-bulk-product-form`
+
+### Video Search Results Sorting
+
+Search results are sorted by: score (desc) → viewCount (desc) → likeCount (desc)
 
 ## Environment Variables
 
 Required (see `.env.example`):
 - `DATABASE_URL` / `DIRECT_URL` - PostgreSQL (Supabase recommended)
 - `YOUTUBE_API_KEY` - YouTube Data API v3 (must be enabled in Google Cloud Console)
-- `NEXTAUTH_SECRET` / `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET` - Random string for JWT encryption (min 32 chars)
 - `ADMIN_PASSWORD` - Admin password (plain text)
+
+## Deployment Notes
+
+### Supabase with PgBouncer
+
+When using Supabase pooler (port 6543), add `?pgbouncer=true` to `DATABASE_URL` to avoid "prepared statement already exists" errors:
+```
+DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true
+```
+Use `DIRECT_URL` (port 5432) for migrations.

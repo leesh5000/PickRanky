@@ -83,28 +83,33 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
         {/* Product Header */}
         <div className="flex flex-col md:flex-row gap-6 mb-8">
-          <div
-            className={`w-full md:w-64 h-64 bg-muted rounded-lg overflow-hidden flex-shrink-0 ${
-              product.affiliateUrl ? "cursor-pointer hover:opacity-90 transition" : ""
-            }`}
-            onClick={() => {
-              if (product.affiliateUrl) {
-                trackClick(product.id);
-                window.open(product.affiliateUrl, "_blank");
-              }
-            }}
-          >
-            {product.thumbnailUrl ? (
-              <img
-                src={product.thumbnailUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                No Image
-              </div>
-            )}
+          <div className="w-full md:w-64 flex-shrink-0">
+            <div
+              className={`w-full h-64 bg-muted rounded-lg overflow-hidden ${
+                product.affiliateUrl ? "cursor-pointer hover:opacity-90 transition" : ""
+              }`}
+              onClick={() => {
+                if (product.affiliateUrl) {
+                  trackClick(product.id);
+                  window.open(product.affiliateUrl, "_blank");
+                }
+              }}
+            >
+              {product.thumbnailUrl ? (
+                <img
+                  src={product.thumbnailUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  No Image
+                </div>
+              )}
+            </div>
+            <p className="hidden md:block text-[11px] text-muted-foreground/60 mt-3 leading-relaxed">
+              이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
+            </p>
           </div>
 
           <div className="flex-1">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCategories } from "@/hooks/useCategories";
+import { useMultiFormPersist } from "@/hooks/useFormPersist";
 
 interface VideoResult {
   videoId: string;
@@ -197,20 +198,72 @@ export default function AdminProductFormPage() {
 
   const existingProduct = productData?.data;
 
-  // Form state
-  const [formData, setFormData] = useState<ProductFormData>({
-    name: "",
-    category: "",
-    affiliateUrl: "",
-    productUrl: "",
-    thumbnailUrls: [],
-    isActive: true,
+  // Persistent form state (only for create mode)
+  const {
+    values: persistedState,
+    setValues: setPersistedState,
+    setValue: setPersistedValue,
+    clearSavedData,
+    isInitialized,
+  } = useMultiFormPersist<{
+    formData: ProductFormData;
+    newThumbnailUrl: string;
+    searchQuery: string;
+    maxResults: number;
+    order: "relevance" | "viewCount" | "date";
+    publishedAfter: string;
+    searchResults: VideoResult[];
+    selectedVideos: string[];
+  }>("admin-product-form", {
+    formData: {
+      name: "",
+      category: "",
+      affiliateUrl: "",
+      productUrl: "",
+      thumbnailUrls: [],
+      isActive: true,
+    },
+    newThumbnailUrl: "",
+    searchQuery: "",
+    maxResults: 10,
+    order: "viewCount",
+    publishedAfter: "30d",
+    searchResults: [],
+    selectedVideos: [],
   });
 
-  // New thumbnail input state
-  const [newThumbnailUrl, setNewThumbnailUrl] = useState("");
+  // Extract values for easier access
+  const formData = persistedState.formData;
+  const newThumbnailUrl = persistedState.newThumbnailUrl;
+  const searchQuery = persistedState.searchQuery;
+  const maxResults = persistedState.maxResults;
+  const order = persistedState.order;
+  const publishedAfter = persistedState.publishedAfter;
+  const searchResults = persistedState.searchResults;
+  const selectedVideosArray = persistedState.selectedVideos;
+  const selectedVideos = new Set(selectedVideosArray);
 
-  // Initialize form with existing product data
+  // Setters
+  const setFormData = (data: ProductFormData | ((prev: ProductFormData) => ProductFormData)) => {
+    if (typeof data === "function") {
+      setPersistedState((prev) => ({ ...prev, formData: data(prev.formData) }));
+    } else {
+      setPersistedValue("formData", data);
+    }
+  };
+  const setNewThumbnailUrl = (url: string) => setPersistedValue("newThumbnailUrl", url);
+  const setSearchQuery = (query: string) => setPersistedValue("searchQuery", query);
+  const setMaxResults = (num: number) => setPersistedValue("maxResults", num);
+  const setOrder = (ord: "relevance" | "viewCount" | "date") => setPersistedValue("order", ord);
+  const setPublishedAfter = (after: string) => setPersistedValue("publishedAfter", after);
+  const setSearchResults = (results: VideoResult[]) => setPersistedValue("searchResults", results);
+  const setSelectedVideosArray = (videos: string[]) => setPersistedValue("selectedVideos", videos);
+
+  // Non-persistent state
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  // Initialize form with existing product data (edit mode only)
   useEffect(() => {
     if (existingProduct) {
       // Convert thumbnailUrls from database (could be JSON or array)
@@ -261,20 +314,24 @@ export default function AdminProductFormPage() {
     }
   };
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [maxResults, setMaxResults] = useState(10);
-  const [order, setOrder] = useState<"relevance" | "viewCount" | "date">("viewCount");
-  const [publishedAfter, setPublishedAfter] = useState("30d");
-
-  // Results state
-  const [searchResults, setSearchResults] = useState<VideoResult[]>([]);
-  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState("");
-
   // Existing videos (for edit mode)
   const existingVideos: ExistingVideo[] = existingProduct?.videos || [];
+
+  // Sort videos by score -> viewCount -> likeCount
+  const sortVideos = (videos: VideoResult[]): VideoResult[] => {
+    return [...videos].sort((a, b) => {
+      // Primary: previewScore descending
+      if (b.previewScore !== a.previewScore) {
+        return b.previewScore - a.previewScore;
+      }
+      // Secondary: viewCount descending
+      if (b.viewCount !== a.viewCount) {
+        return b.viewCount - a.viewCount;
+      }
+      // Tertiary: likeCount descending
+      return b.likeCount - a.likeCount;
+    });
+  };
 
   // Search handler
   const handleSearch = async (e: React.FormEvent) => {
@@ -284,7 +341,7 @@ export default function AdminProductFormPage() {
     setIsSearching(true);
     setSearchError("");
     setSearchResults([]);
-    setSelectedVideos(new Set());
+    setSelectedVideosArray([]);
 
     try {
       const result = await searchYouTubeVideos({
@@ -300,8 +357,10 @@ export default function AdminProductFormPage() {
         const filteredResults = result.data.videos.filter(
           (v: VideoResult) => !existingYoutubeIds.has(v.videoId)
         );
-        setSearchResults(filteredResults);
-        if (filteredResults.length === 0) {
+        // Sort by score -> viewCount -> likeCount
+        const sortedResults = sortVideos(filteredResults);
+        setSearchResults(sortedResults);
+        if (sortedResults.length === 0) {
           setSearchError(
             result.data.videos.length > 0
               ? "모든 검색 결과가 이미 추가된 영상입니다."
@@ -320,21 +379,19 @@ export default function AdminProductFormPage() {
 
   // Toggle video selection
   const toggleVideoSelection = (videoId: string) => {
-    const newSelected = new Set(selectedVideos);
-    if (newSelected.has(videoId)) {
-      newSelected.delete(videoId);
+    if (selectedVideos.has(videoId)) {
+      setSelectedVideosArray(selectedVideosArray.filter((id) => id !== videoId));
     } else {
-      newSelected.add(videoId);
+      setSelectedVideosArray([...selectedVideosArray, videoId]);
     }
-    setSelectedVideos(newSelected);
   };
 
   const selectAll = () => {
-    setSelectedVideos(new Set(searchResults.map((v) => v.videoId)));
+    setSelectedVideosArray(searchResults.map((v) => v.videoId));
   };
 
   const deselectAll = () => {
-    setSelectedVideos(new Set());
+    setSelectedVideosArray([]);
   };
 
   const getSelectedVideos = (): VideoResult[] => {
@@ -380,6 +437,8 @@ export default function AdminProductFormPage() {
     },
     onSuccess: (result) => {
       if (result.success) {
+        // Clear saved form data on success
+        clearSavedData();
         alert(`상품이 등록되었습니다!\n점수: ${result.data.score}점`);
         router.push("/admin/products");
       } else {
@@ -415,14 +474,11 @@ export default function AdminProductFormPage() {
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ["admin-product", productId] });
-        setSearchResults((prev) =>
-          prev.filter((v) => v.videoId !== result.data?.video?.youtubeId)
-        );
-        setSelectedVideos((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(result.data?.video?.youtubeId);
-          return newSet;
-        });
+        const addedVideoId = result.data?.video?.youtubeId;
+        if (addedVideoId) {
+          setSearchResults(searchResults.filter((v) => v.videoId !== addedVideoId));
+          setSelectedVideosArray(selectedVideosArray.filter((id) => id !== addedVideoId));
+        }
       } else {
         alert(result.error || "영상 추가에 실패했습니다.");
       }
@@ -450,7 +506,7 @@ export default function AdminProductFormPage() {
     for (const video of selected) {
       await addVideoMutation.mutateAsync(video);
     }
-    setSelectedVideos(new Set());
+    setSelectedVideosArray([]);
   };
 
   // Form validation
@@ -478,7 +534,7 @@ export default function AdminProductFormPage() {
     }
   };
 
-  if (isEditMode && productLoading) {
+  if ((isEditMode && productLoading) || !isInitialized) {
     return (
       <div className="flex justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -501,8 +557,8 @@ export default function AdminProductFormPage() {
         <span>{isEditMode ? "상품 편집" : "상품 등록"}</span>
       </nav>
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h1 className="text-2xl sm:text-3xl font-bold">
           {isEditMode ? "상품 편집" : "상품 등록"}
         </h1>
         {isEditMode && (
@@ -725,7 +781,7 @@ export default function AdminProductFormPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <label className="text-sm font-medium">영상 수</label>
                     <select
