@@ -70,7 +70,7 @@ export default function AdminLayout({
           </svg>
         </button>
         <Link href="/" className="text-xl font-bold">
-          <span className="text-primary">Pick</span>Trend
+          <span className="text-primary">Pick</span>Ranky
         </Link>
         <ThemeToggle />
       </header>
@@ -93,7 +93,7 @@ export default function AdminLayout({
         <div className="p-4 border-b flex items-center justify-between">
           <div>
             <Link href="/" className="text-xl font-bold" onClick={closeSidebar}>
-              <span className="text-primary">Pick</span>Trend
+              <span className="text-primary">Pick</span>Ranky
             </Link>
             <div className="text-xs text-muted-foreground mt-1">Admin Panel</div>
           </div>

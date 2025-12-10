@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
-            <span className="text-primary">Pick</span>Trend Admin
+            <span className="text-primary">Pick</span>Ranky Admin
           </CardTitle>
         </CardHeader>
         <CardContent>
