@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       ? parseInt(searchParams.get("slot")!)
       : null;
     const category = searchParams.get("category");
+    const sortBy = searchParams.get("sortBy") || "score"; // score, price, discount, videoCount
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
@@ -80,6 +81,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Build orderBy based on sortBy parameter
+    let orderBy: any = { rank: "asc" };
+    if (sortBy === "price") {
+      orderBy = { product: { price: "asc" } };
+    } else if (sortBy === "priceDesc") {
+      orderBy = { product: { price: "desc" } };
+    } else if (sortBy === "discount") {
+      orderBy = { product: { discountRate: "desc" } };
+    } else if (sortBy === "videoCount") {
+      orderBy = { videoCount: "desc" };
+    }
+
     // Get rankings with pagination
     const rankings = await prisma.productRanking.findMany({
       where: {
@@ -89,7 +102,7 @@ export async function GET(request: NextRequest) {
       include: {
         product: true,
       },
-      orderBy: { rank: "asc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     });

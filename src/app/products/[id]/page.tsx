@@ -126,6 +126,28 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             >
               {product.name}
             </h1>
+
+            {/* Price Info */}
+            {(product.price || product.originalPrice) && (
+              <div className="flex items-center gap-3 mb-3">
+                {product.discountRate && (
+                  <span className="text-lg sm:text-xl font-bold text-red-500">
+                    {product.discountRate}%
+                  </span>
+                )}
+                {product.originalPrice && product.originalPrice !== product.price && (
+                  <span className="text-sm sm:text-base text-muted-foreground line-through">
+                    {product.originalPrice.toLocaleString()}원
+                  </span>
+                )}
+                {product.price && (
+                  <span className="text-xl sm:text-2xl font-bold text-foreground">
+                    {product.price.toLocaleString()}원
+                  </span>
+                )}
+              </div>
+            )}
+
             {product.category && (
               <Badge variant="secondary" className="mb-4">
                 {categoryMap[product.category] || product.category}

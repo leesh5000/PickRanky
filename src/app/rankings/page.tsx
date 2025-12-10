@@ -24,6 +24,9 @@ interface RankingItem {
     name: string;
     category: string;
     thumbnailUrl: string | null;
+    price: number | null;
+    originalPrice: number | null;
+    discountRate: number | null;
   };
   change: {
     type: "UP" | "DOWN" | "SAME" | "NEW";
@@ -51,9 +54,19 @@ interface RankingsResponse {
 const LIMIT_OPTIONS = [50, 100, 150] as const;
 type LimitOption = (typeof LIMIT_OPTIONS)[number];
 
+const SORT_OPTIONS = [
+  { value: "score", label: "점수순" },
+  { value: "price", label: "가격 낮은순" },
+  { value: "priceDesc", label: "가격 높은순" },
+  { value: "discount", label: "할인율순" },
+  { value: "videoCount", label: "영상 많은순" },
+] as const;
+type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+
 async function fetchRankings(params: {
   period: string;
   category?: string;
+  sortBy?: string;
   page: number;
   limit: number;
   year?: number;
@@ -68,6 +81,9 @@ async function fetchRankings(params: {
   });
   if (params.category) {
     searchParams.set("category", params.category);
+  }
+  if (params.sortBy) {
+    searchParams.set("sortBy", params.sortBy);
   }
   if (params.year) {
     searchParams.set("year", params.year.toString());
@@ -101,6 +117,7 @@ function getCurrentMonthString(): string {
 export default function RankingsPage() {
   const [period, setPeriod] = useState("daily");
   const [category, setCategory] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<SortOption>("score");
   const [limit, setLimit] = useState<LimitOption>(50);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
@@ -127,11 +144,12 @@ export default function RankingsPage() {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ["rankings", period, category, limit, selectedDate, selectedMonth],
+    queryKey: ["rankings", period, category, sortBy, limit, selectedDate, selectedMonth],
     queryFn: ({ pageParam = 1 }) =>
       fetchRankings({
         period,
         category,
+        sortBy,
         page: pageParam,
         limit,
         year: dateParams.year,
@@ -229,20 +247,39 @@ export default function RankingsPage() {
             ))}
           </div>
 
-          {/* Limit Selector */}
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-muted-foreground">표시 개수:</span>
-            <div className="flex gap-1">
-              {LIMIT_OPTIONS.map((option) => (
-                <Button
-                  key={option}
-                  variant={limit === option ? "default" : "outline"}
-                  onClick={() => handleFilterChange(undefined, undefined, option)}
-                  size="sm"
-                >
-                  {option}
-                </Button>
-              ))}
+          {/* Sort & Limit Selectors */}
+          <div className="flex items-center gap-4 ml-auto flex-wrap">
+            {/* Sort Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">정렬:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="px-3 py-1.5 text-sm border rounded-lg bg-background"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Limit Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">표시:</span>
+              <div className="flex gap-1">
+                {LIMIT_OPTIONS.map((option) => (
+                  <Button
+                    key={option}
+                    variant={limit === option ? "default" : "outline"}
+                    onClick={() => handleFilterChange(undefined, undefined, option)}
+                    size="sm"
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -338,6 +375,26 @@ export default function RankingsPage() {
                       {/* 상품 정보 */}
                       <div className="px-3 py-2">
                         <h3 className="font-medium line-clamp-2 text-sm">{item.product.name}</h3>
+                        {/* 가격 정보 */}
+                        {(item.product.price || item.product.originalPrice) && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {item.product.discountRate && (
+                              <span className="text-sm font-bold text-red-500">
+                                {item.product.discountRate}%
+                              </span>
+                            )}
+                            {item.product.originalPrice && item.product.originalPrice !== item.product.price && (
+                              <span className="text-xs text-muted-foreground line-through">
+                                {item.product.originalPrice.toLocaleString()}원
+                              </span>
+                            )}
+                            {item.product.price && (
+                              <span className="text-sm font-bold">
+                                {item.product.price.toLocaleString()}원
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <span className="text-xs text-muted-foreground">영상 {item.videoCount}개</span>
                       </div>
                     </div>
@@ -371,6 +428,26 @@ export default function RankingsPage() {
                         <h3 className="font-medium truncate">
                           {item.product.name}
                         </h3>
+                        {/* 가격 정보 */}
+                        {(item.product.price || item.product.originalPrice) && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {item.product.discountRate && (
+                              <span className="text-sm font-bold text-red-500">
+                                {item.product.discountRate}%
+                              </span>
+                            )}
+                            {item.product.originalPrice && item.product.originalPrice !== item.product.price && (
+                              <span className="text-sm text-muted-foreground line-through">
+                                {item.product.originalPrice.toLocaleString()}원
+                              </span>
+                            )}
+                            {item.product.price && (
+                              <span className="text-sm font-bold">
+                                {item.product.price.toLocaleString()}원
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           {item.product.category && (
                             <Badge variant="secondary">

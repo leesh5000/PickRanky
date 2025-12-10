@@ -60,6 +60,9 @@ async function createProduct(data: {
   category: string;
   affiliateUrl: string;
   thumbnailUrl?: string;
+  price?: number;
+  originalPrice?: number;
+  discountRate?: number;
   videos: VideoResult[];
 }) {
   const payload = {
@@ -165,6 +168,18 @@ export default function BulkProductPage() {
   const [parseError, setParseError] = useState("");
   const [parseWarning, setParseWarning] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
+  const [copiedScript, setCopiedScript] = useState<string | null>(null);
+
+  // Copy script to clipboard
+  const copyScript = async (script: string, scriptId: string) => {
+    try {
+      await navigator.clipboard.writeText(script);
+      setCopiedScript(scriptId);
+      setTimeout(() => setCopiedScript(null), 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
   const [registrationResults, setRegistrationResults] = useState<{
     success: number;
     failed: number;
@@ -212,6 +227,18 @@ export default function BulkProductPage() {
       prev.map((p) => (p.id === id ? { ...p, selected: !p.selected } : p))
     );
   };
+
+  // Toggle all products selection
+  const toggleAllProducts = (selected: boolean) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.isRegistered ? p : { ...p, selected }))
+    );
+  };
+
+  // Check if all non-registered products are selected
+  const allSelected = products.length > 0 &&
+    products.filter((p) => !p.isRegistered).every((p) => p.selected);
+  const someSelected = products.some((p) => p.selected && !p.isRegistered);
 
   // Update product field
   const updateProduct = (id: string, updates: Partial<ProductWithVideos>) => {
@@ -282,6 +309,9 @@ export default function BulkProductPage() {
           category: product.category,
           affiliateUrl: product.affiliateUrl,
           thumbnailUrl: product.imageUrl,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          discountRate: product.discountRate,
           videos: product.videos,
         });
 
@@ -350,16 +380,50 @@ export default function BulkProductPage() {
                 <li>allow pasting 입력 후 Enter (최초 1회)</li>
                 <li>아래 코드를 복사하여 붙여넣기 후 Enter (자동 스크롤 시작)</li>
               </ol>
-              <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
+              <div className="relative mt-2">
+                <button
+                  onClick={() => copyScript(`(async()=>{const d={};const get=()=>{document.querySelectorAll('.product-item').forEach(item=>{const nameEl=item.querySelector('.product-description .LinesEllipsis');const name=nameEl?.textContent?.trim();if(!name||d[name])return;const img=item.querySelector('.product-picture img');const priceEl=item.querySelector('.sale-price .currency-label');const discountEl=item.querySelector('.discount');const price=priceEl?.textContent?.match(/[\\d,]+/)?.[0];const discountMatch=discountEl?.textContent?.match(/(\\d+)%.*?([\\d,]+)/);d[name]={name,image:img?.src||'',price,originalPrice:discountMatch?.[2],discount:discountMatch?.[1]}});return Object.keys(d).length};console.log('스크롤 시작...');let prev=0,cnt=0;while(cnt<100){const n=get();console.log('현재:',n,'개');window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;console.log('완료!',arr.length,'개');const copyToClip=async(t)=>{try{await navigator.clipboard.writeText(t);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);return true}catch(e2){return false}}};if(await copyToClip(json)){alert(arr.length+'개 상품이 클립보드에 복사되었습니다!\\n\\n이제 PickRanky 일괄등록 페이지에 붙여넣기(Ctrl+V)하세요.')}else{console.log(json);alert(arr.length+'개 파싱 완료!\\n\\n아래 방법 중 하나로 복사하세요:\\n1. 콘솔에서 copy(_coupangData) 입력\\n2. 콘솔 출력된 JSON 직접 선택 후 복사')}})();`, "main")}
+                  className="absolute top-2 right-2 p-1.5 rounded bg-muted hover:bg-muted-foreground/20 transition"
+                  title="스크립트 복사"
+                >
+                  {copiedScript === "main" ? (
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+                <pre className="p-2 pr-10 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
 {`(async()=>{const d={};const get=()=>{document.querySelectorAll('.product-item').forEach(item=>{const nameEl=item.querySelector('.product-description .LinesEllipsis');const name=nameEl?.textContent?.trim();if(!name||d[name])return;const img=item.querySelector('.product-picture img');const priceEl=item.querySelector('.sale-price .currency-label');const discountEl=item.querySelector('.discount');const price=priceEl?.textContent?.match(/[\\d,]+/)?.[0];const discountMatch=discountEl?.textContent?.match(/(\\d+)%.*?([\\d,]+)/);d[name]={name,image:img?.src||'',price,originalPrice:discountMatch?.[2],discount:discountMatch?.[1]}});return Object.keys(d).length};console.log('스크롤 시작...');let prev=0,cnt=0;while(cnt<100){const n=get();console.log('현재:',n,'개');window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;console.log('완료!',arr.length,'개');const copyToClip=async(t)=>{try{await navigator.clipboard.writeText(t);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);return true}catch(e2){return false}}};if(await copyToClip(json)){alert(arr.length+'개 상품이 클립보드에 복사되었습니다!\\n\\n이제 PickRanky 일괄등록 페이지에 붙여넣기(Ctrl+V)하세요.')}else{console.log(json);alert(arr.length+'개 파싱 완료!\\n\\n아래 방법 중 하나로 복사하세요:\\n1. 콘솔에서 copy(_coupangData) 입력\\n2. 콘솔 출력된 JSON 직접 선택 후 복사')}})();`}
-              </pre>
+                </pre>
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">※ 자동으로 클립보드에 복사됩니다</p>
               <p className="mt-1 text-xs text-muted-foreground">※ 새 골드박스 페이지용 (product-item 구조)</p>
               <details className="mt-3">
                 <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">이전 버전 스크립트 (discount-product-unit 구조)</summary>
-                <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                <div className="relative mt-2">
+                  <button
+                    onClick={() => copyScript(`(async()=>{const d={};const get=()=>{document.querySelectorAll('a[href*="/products/"]').forEach(a=>{let c=a.closest('.discount-product-unit')||a.closest('[class*="product"]');if(!c)return;let t=c.querySelector('.info_section__title');let name=t?.textContent?.trim();if(!name||d[name])return;const i=c.querySelector('img[src*="coupangcdn"]');d[name]={name,url:a.href,image:i?.src||''}});return Object.keys(d).length};console.log('스크롤 시작...');let prev=0,cnt=0;while(cnt<100){const n=get();console.log('현재:',n,'개');window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;console.log('완료!',arr.length,'개');const copyToClip=async(t)=>{try{await navigator.clipboard.writeText(t);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);return true}catch(e2){return false}}};if(await copyToClip(json)){alert(arr.length+'개 상품이 클립보드에 복사되었습니다!')}else{console.log(json);alert(arr.length+'개 파싱 완료! copy(_coupangData) 실행하세요')}})();`, "legacy")}
+                    className="absolute top-2 right-2 p-1.5 rounded bg-muted hover:bg-muted-foreground/20 transition"
+                    title="스크립트 복사"
+                  >
+                    {copiedScript === "legacy" ? (
+                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                  <pre className="p-2 pr-10 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
 {`(async()=>{const d={};const get=()=>{document.querySelectorAll('a[href*="/products/"]').forEach(a=>{let c=a.closest('.discount-product-unit')||a.closest('[class*="product"]');if(!c)return;let t=c.querySelector('.info_section__title');let name=t?.textContent?.trim();if(!name||d[name])return;const i=c.querySelector('img[src*="coupangcdn"]');d[name]={name,url:a.href,image:i?.src||''}});return Object.keys(d).length};console.log('스크롤 시작...');let prev=0,cnt=0;while(cnt<100){const n=get();console.log('현재:',n,'개');window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;console.log('완료!',arr.length,'개');const copyToClip=async(t)=>{try{await navigator.clipboard.writeText(t);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);return true}catch(e2){return false}}};if(await copyToClip(json)){alert(arr.length+'개 상품이 클립보드에 복사되었습니다!')}else{console.log(json);alert(arr.length+'개 파싱 완료! copy(_coupangData) 실행하세요')}})();`}
-                </pre>
+                  </pre>
+                </div>
               </details>
               <p className="mt-2 text-xs">5. 자동 스크롤 완료 후 아래 입력창에 Ctrl+V로 붙여넣기</p>
             </div>
@@ -453,6 +517,23 @@ export default function BulkProductPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Select All Checkbox */}
+              <div className="flex items-center gap-2 pb-4 mb-4 border-b">
+                <input
+                  type="checkbox"
+                  id="select-all"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={(e) => toggleAllProducts(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                  전체 선택 ({products.filter((p) => !p.isRegistered).length}개)
+                </label>
+              </div>
+
               <div className="space-y-4">
                 {products.map((product) => (
                   <div
@@ -496,14 +577,26 @@ export default function BulkProductPage() {
                           {product.name}
                         </h3>
 
-                        <div className="flex items-center gap-4 mb-2">
-                          {product.price && (
-                            <span className="text-primary font-bold">
-                              {product.price.toLocaleString()}원
-                            </span>
-                          )}
-                          {product.discountRate && (
-                            <Badge variant="destructive">{product.discountRate}%</Badge>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {/* Price Info */}
+                          {(product.price || product.originalPrice) && (
+                            <div className="flex items-center gap-2">
+                              {product.discountRate && (
+                                <span className="text-sm font-bold text-red-500">
+                                  {product.discountRate}%
+                                </span>
+                              )}
+                              {product.originalPrice && product.originalPrice !== product.price && (
+                                <span className="text-xs text-muted-foreground line-through">
+                                  {product.originalPrice.toLocaleString()}원
+                                </span>
+                              )}
+                              {product.price && (
+                                <span className="text-sm font-bold text-primary">
+                                  {product.price.toLocaleString()}원
+                                </span>
+                              )}
+                            </div>
                           )}
                           {product.isRegistered && (
                             <Badge variant="success">등록 완료</Badge>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
+  <!-- Background -->
+  <rect width="180" height="180" rx="40" fill="#3B82F6"/>
+
+  <!-- Ranking bars (ascending) -->
+  <rect x="30" y="115" width="30" height="35" rx="4" fill="white"/>
+  <rect x="75" y="85" width="30" height="65" rx="4" fill="white"/>
+  <rect x="120" y="55" width="30" height="95" rx="4" fill="white"/>
+
+  <!-- Crown on top bar -->
+  <path d="M135 30 L120 50 L127 45 L135 55 L143 45 L150 50 L135 30Z" fill="#FBBF24"/>
+</svg>

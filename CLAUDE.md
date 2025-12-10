@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickTrend is a trending shopping product ranking service that:
+PickRanky (formerly PickTrend) is a trending shopping product ranking service that:
 - Allows admin to manually register products with YouTube review videos
 - Ranks products by calculated score (views, engagement, virality, recency)
 - Categories: electronics, beauty, appliances, food (Korean market focus)
@@ -77,7 +77,7 @@ npm run db:studio    # Open Prisma Studio GUI
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/rankings` | GET | Fetch rankings with pagination (period, category filters) |
+| `/api/rankings` | GET | Fetch rankings with pagination (period, category, sortBy filters) |
 | `/api/products/[id]` | GET | Fetch single product with videos and metrics |
 | `/api/categories` | GET | Fetch active categories |
 | `/api/track/click` | POST | Track affiliate link clicks |
@@ -156,6 +156,26 @@ Required (see `.env.example`):
 - `YOUTUBE_API_KEY` - YouTube Data API v3 (must be enabled in Google Cloud Console)
 - `NEXTAUTH_SECRET` - Random string for JWT encryption (min 32 chars)
 - `ADMIN_PASSWORD` - Admin password (plain text)
+
+## Known Limitations
+
+### Coupang Server-Side Requests
+
+Coupang blocks all server-side requests (403 Access Denied), including:
+- Affiliate link redirects (`link.coupang.com/a/xxx`)
+- Product page scraping (`www.coupang.com/vp/products/xxx`)
+- Open Graph metadata fetching
+
+The `/api/admin/opengraph` route already handles this with `COUPANG_BLOCKED` error.
+
+**Why auto-fetching from affiliate links is not possible:**
+1. Coupang's bot detection blocks server requests regardless of User-Agent
+2. Coupang Partners API only provides:
+   - Search API: keyword → product list (rate limited: 10 calls/hour)
+   - Deeplink API: product URL → affiliate link (opposite direction)
+3. No API endpoint exists for: affiliate link → product info
+
+**Current workaround:** Use the Goldbox console script to extract product data client-side, then paste into bulk registration.
 
 ## Deployment Notes
 

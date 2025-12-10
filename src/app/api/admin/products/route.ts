@@ -257,6 +257,9 @@ interface CreateProductRequest {
   productUrl?: string;
   thumbnailUrl?: string;
   thumbnailUrls?: string[];
+  price?: number;
+  originalPrice?: number;
+  discountRate?: number;
   videos: VideoInput[];
 }
 
@@ -269,7 +272,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: CreateProductRequest = await request.json();
-    const { name, category, affiliateUrl, productUrl, thumbnailUrl, thumbnailUrls, videos } = body;
+    const { name, category, affiliateUrl, productUrl, thumbnailUrl, thumbnailUrls, price, originalPrice, discountRate, videos } = body;
 
     // Validation
     if (!name || name.trim().length === 0) {
@@ -398,6 +401,9 @@ export async function POST(request: NextRequest) {
           productUrl: productUrl?.trim() || null,
           thumbnailUrl: productThumbnail,
           thumbnailUrls: productThumbnailUrls,
+          price: price || null,
+          originalPrice: originalPrice || null,
+          discountRate: discountRate || null,
         },
       });
 

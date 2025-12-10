@@ -11,7 +11,9 @@ export interface Category {
 }
 
 async function fetchCategories(): Promise<Category[]> {
-  const res = await fetch("/api/categories");
+  const res = await fetch("/api/categories", {
+    cache: "no-store",
+  });
   const data = await res.json();
   if (!data.success) {
     throw new Error(data.error || "Failed to fetch categories");
@@ -23,7 +25,7 @@ export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
     queryFn: fetchCategories,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
 

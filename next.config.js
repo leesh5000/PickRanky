@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // CSS HMR 문제 해결을 위한 webpack 설정
+  webpack: (config) => {
+    config.watchOptions = {
+      poll: 1000,
+      aggregateTimeout: 300,
+    };
+    return config;
+  },
   images: {
     remotePatterns: [
       // YouTube thumbnails
