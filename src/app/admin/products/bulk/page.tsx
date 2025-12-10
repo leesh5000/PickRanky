@@ -290,11 +290,11 @@ export default function BulkProductPage() {
   // Register all selected products
   const handleRegisterAll = async () => {
     const toRegister = products.filter(
-      (p) => p.selected && p.videos.length > 0 && p.category && p.affiliateUrl && !p.isRegistered
+      (p) => p.selected && p.category && p.affiliateUrl && !p.isRegistered
     );
 
     if (toRegister.length === 0) {
-      alert("등록할 상품이 없습니다. 카테고리, Affiliate URL, 영상을 모두 입력해주세요.");
+      alert("등록할 상품이 없습니다. 카테고리와 Affiliate URL을 모두 입력해주세요.");
       return;
     }
 
@@ -344,7 +344,7 @@ export default function BulkProductPage() {
 
   const selectedCount = products.filter((p) => p.selected).length;
   const readyCount = products.filter(
-    (p) => p.selected && p.videos.length > 0 && p.category && p.affiliateUrl
+    (p) => p.selected && p.category && p.affiliateUrl && !p.isRegistered
   ).length;
   const registeredCount = products.filter((p) => p.isRegistered).length;
 
@@ -767,7 +767,7 @@ export default function BulkProductPage() {
                     준비된 상품 {readyCount}개를 등록합니다.
                     {readyCount !== selectedCount && (
                       <span className="text-amber-600 ml-2">
-                        (카테고리, Affiliate URL, 영상이 모두 입력되지 않은 상품은 제외됩니다)
+                        (카테고리, Affiliate URL이 입력되지 않은 상품은 제외됩니다)
                       </span>
                     )}
                   </p>

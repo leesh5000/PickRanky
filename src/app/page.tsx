@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { PopularProductsCarousel } from "@/components/carousel/popular-products-carousel";
 
 const TREND_SERVICES = [
   {
@@ -58,6 +59,25 @@ export default function Home() {
               상품, 검색어, 기사, 커뮤니티까지
               <br />
               지금 가장 핫한 트렌드를 확인하세요
+            </p>
+          </div>
+        </section>
+
+        {/* 오늘의 인기 상품 */}
+        <section className="py-8 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">오늘의 인기 상품</h2>
+              <Link
+                href="/rankings"
+                className="text-sm text-muted-foreground hover:text-primary transition"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <PopularProductsCarousel />
+            <p className="text-[11px] text-blue-500 mt-3 leading-relaxed">
+              이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
             </p>
           </div>
         </section>

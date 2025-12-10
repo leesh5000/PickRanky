@@ -326,12 +326,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!videos || videos.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "At least one video is required" },
-        { status: 400 }
-      );
-    }
+    // videos can be empty - product without videos is allowed
 
     // Generate normalized name
     const normalizedName = normalizeKorean(name.trim());

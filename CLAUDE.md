@@ -46,8 +46,8 @@ npm run db:studio    # Open Prisma Studio GUI
 **Bulk Registration** (`/admin/products/bulk`):
 1. Run Console script on Coupang Goldbox page to extract products as JSON
 2. Paste JSON into bulk registration page
-3. For each product: select category, enter affiliate URL, search/select videos
-4. Register all products at once
+3. For each product: select category, enter affiliate URL, optionally search/select videos
+4. Register all products at once (videos are optional)
 
 ### Key Modules
 
