@@ -20,10 +20,16 @@ interface RankingItem {
   };
 }
 
-async function fetchPopularProducts() {
-  const res = await fetch("/api/rankings?period=daily&limit=5");
+interface ProductsCarouselProps {
+  apiUrl?: string;
+  queryKey?: string;
+  badgeText?: string;
+}
+
+async function fetchPopularProducts(apiUrl: string) {
+  const res = await fetch(apiUrl);
   const data = await res.json();
-  return data.data?.rankings || [];
+  return data.data?.products || data.data?.rankings || [];
 }
 
 function trackClick(productId: string) {
@@ -34,13 +40,17 @@ function trackClick(productId: string) {
   });
 }
 
-export function PopularProductsCarousel() {
+export function PopularProductsCarousel({
+  apiUrl = "/api/products/popular?limit=5",
+  queryKey = "popularProducts",
+  badgeText = "인기",
+}: ProductsCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   const { data: rankings = [], isLoading } = useQuery<RankingItem[]>({
-    queryKey: ["popularProducts", "daily"],
-    queryFn: fetchPopularProducts,
+    queryKey: [queryKey],
+    queryFn: () => fetchPopularProducts(apiUrl),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -116,7 +126,7 @@ export function PopularProductsCarousel() {
               {/* 콘텐츠 */}
               <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
                 <Badge className="bg-primary hover:bg-primary mb-2">
-                  #{item.rank} 인기
+                  #{item.rank} {badgeText}
                 </Badge>
                 <h3 className="text-lg sm:text-xl md:text-2xl font-bold line-clamp-2 mb-2">
                   {item.product.name}

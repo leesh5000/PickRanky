@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { PopularProductsCarousel } from "@/components/carousel/popular-products-carousel";
+import { ProductGrid } from "@/components/products/product-grid";
 
 const TREND_SERVICES = [
   {
@@ -63,11 +63,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 오늘의 인기 상품 */}
+        {/* 지금 뜨는 인기 상품 */}
         <section className="py-8 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">오늘의 인기 상품</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">🔥 지금 뜨는 인기 상품</h2>
               <Link
                 href="/rankings"
                 className="text-sm text-muted-foreground hover:text-primary transition"
@@ -75,8 +75,37 @@ export default function Home() {
                 전체보기 →
               </Link>
             </div>
-            <PopularProductsCarousel />
-            <p className="text-[11px] text-blue-500 mt-3 leading-relaxed">
+            <ProductGrid
+              apiUrl="/api/products/popular?limit=20"
+              queryKey="popularProducts"
+              itemsPerPage={5}
+              rotationInterval={5000}
+            />
+            <p className="text-[11px] text-blue-500 mt-4 leading-relaxed">
+              이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
+            </p>
+          </div>
+        </section>
+
+        {/* 신규 상품 */}
+        <section className="py-8 px-4 bg-muted/30">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">✨ 신규 상품</h2>
+              <Link
+                href="/rankings"
+                className="text-sm text-muted-foreground hover:text-primary transition"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <ProductGrid
+              apiUrl="/api/products/new?limit=20"
+              queryKey="newProducts"
+              itemsPerPage={5}
+              rotationInterval={5000}
+            />
+            <p className="text-[11px] text-blue-500 mt-4 leading-relaxed">
               이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
             </p>
           </div>
