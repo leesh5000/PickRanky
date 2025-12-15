@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import TrendDetailClient from "./trend-client";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 async function getTrendKeyword(id: string) {
@@ -55,7 +55,7 @@ async function getTrendKeyword(id: string) {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { id } = await params;
+  const { id } = params;
   const keyword = await getTrendKeyword(id);
 
   if (!keyword) {
@@ -76,7 +76,7 @@ export async function generateMetadata({
 }
 
 export default async function TrendDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  const { id } = params;
   const keyword = await getTrendKeyword(id);
 
   if (!keyword) {
