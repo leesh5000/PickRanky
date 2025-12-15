@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useCategories, useCategoryMap } from "@/hooks/useCategories";
+import { useCategoryMap } from "@/hooks/useCategories";
 import { TrendSource } from "@prisma/client";
 
 const SOURCE_OPTIONS: { value: TrendSource; label: string }[] = [
@@ -27,7 +27,6 @@ async function updateTrendKeyword(
   id: string,
   data: {
     keyword?: string;
-    category?: string | null;
     source?: TrendSource;
     isActive?: boolean;
   }
@@ -79,11 +78,9 @@ export default function EditTrendKeywordPage({
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: categories } = useCategories();
   const { categoryMap } = useCategoryMap();
 
   const [keyword, setKeyword] = useState("");
-  const [category, setCategory] = useState<string>("");
   const [source, setSource] = useState<TrendSource>("MANUAL");
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +101,6 @@ export default function EditTrendKeywordPage({
     if (data?.data?.keyword) {
       const kw = data.data.keyword;
       setKeyword(kw.keyword);
-      setCategory(kw.category || "");
       setSource(kw.source);
       setIsActive(kw.isActive);
     }
@@ -167,7 +163,6 @@ export default function EditTrendKeywordPage({
 
     updateMutation.mutate({
       keyword: keyword.trim(),
-      category: category || null,
       source,
       isActive,
     });
@@ -225,23 +220,6 @@ export default function EditTrendKeywordPage({
                 onChange={(e) => setKeyword(e.target.value)}
                 className="max-w-md"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">카테고리</Label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">카테고리 없음</option>
-                {categories?.map((cat) => (
-                  <option key={cat.key} value={cat.key}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="space-y-2">
