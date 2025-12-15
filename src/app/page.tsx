@@ -4,6 +4,8 @@ import { Footer } from "@/components/layout/footer";
 import { ProductGrid } from "@/components/products/product-grid";
 import { VideoGrid } from "@/components/videos/video-grid";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://pickranky.com";
+
 const TREND_SERVICES = [
   {
     name: "상품 트렌드",
@@ -43,8 +45,46 @@ const PRODUCT_CATEGORIES = [
 ];
 
 export default function Home() {
+  // JSON-LD for Organization
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "PickRanky",
+    url: SITE_URL,
+    logo: `${SITE_URL}/icon.svg`,
+    description:
+      "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위 서비스",
+    sameAs: [],
+  };
+
+  // JSON-LD for WebSite with SearchAction
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "PickRanky",
+    url: SITE_URL,
+    description:
+      "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위. 전자기기, 뷰티, 가전제품, 음식 등 카테고리별 인기 상품을 확인하세요.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/rankings?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       <Header />
       <main className="flex-1">
         {/* Hero Section */}

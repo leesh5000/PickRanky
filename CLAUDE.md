@@ -115,6 +115,24 @@ Features:
 - CSS transform slide animation (translateX, 500ms duration)
 - Click tracking for products, YouTube link handling for videos
 
+### SEO Implementation
+
+**Metadata & Structured Data:**
+- `src/app/layout.tsx` - Root metadata with OG tags, Twitter Cards, Google/Naver verification
+- `src/app/robots.ts` - Crawler rules (blocks `/admin/`, `/api/admin/`)
+- `src/app/sitemap.ts` - Dynamic sitemap (products, categories, static pages)
+
+**Dynamic Metadata Pages:**
+- `src/app/products/[id]/page.tsx` - Product schema JSON-LD + BreadcrumbList
+- `src/app/categories/[category]/page.tsx` - Category ItemList JSON-LD
+- `src/app/rankings/layout.tsx` - Rankings page metadata
+- `src/app/page.tsx` - Organization + WebSite schema JSON-LD
+
+**Page Architecture:**
+- Dynamic pages converted to server components for SEO
+- Client interactivity moved to `*-client.tsx` files (e.g., `product-client.tsx`)
+- Server fetches data → passes to client component as `initialData`
+
 ### UI & Theming
 
 - `src/components/providers.tsx` - App-level providers (ThemeProvider, QueryClient, SessionProvider)
