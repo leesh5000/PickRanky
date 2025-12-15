@@ -23,7 +23,6 @@ interface TrendDetailClientProps {
   keyword: {
     id: string;
     keyword: string;
-    category: string | null;
     source: string;
     createdAt: string;
   };
@@ -160,11 +159,6 @@ export default function TrendDetailClient({
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <h1 className="text-2xl sm:text-3xl font-bold">{keyword.keyword}</h1>
               <Badge variant="outline">{getSourceLabel(keyword.source)}</Badge>
-              {keyword.category && (
-                <Badge variant="secondary">
-                  {categoryMap[keyword.category] || keyword.category}
-                </Badge>
-              )}
             </div>
 
             {/* Ranking Info */}
@@ -256,14 +250,6 @@ export default function TrendDetailClient({
                     <span className="text-muted-foreground">소스</span>
                     <span>{getSourceLabel(keyword.source)}</span>
                   </div>
-                  {keyword.category && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">카테고리</span>
-                      <span>
-                        {categoryMap[keyword.category] || keyword.category}
-                      </span>
-                    </div>
-                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">등록일</span>
                     <span>

@@ -7,10 +7,37 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useCategoryMap } from "@/hooks/useCategories";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { TrendSource } from "@prisma/client";
+
+// Ranking method info (static, same as server-side)
+const RANKING_METHOD = {
+  title: "검색어 트렌드 순위 산정 방식",
+  description: "검색어 순위는 다양한 요소를 종합하여 산정됩니다. 최대 125점 만점으로 계산됩니다.",
+  factors: [
+    {
+      name: "검색량 점수",
+      maxPoints: 100,
+      description: "Google Trends, Zum 등 검색 트렌드 소스에서 수집한 검색량 지수입니다.",
+    },
+    {
+      name: "최신성 보너스",
+      maxPoints: 10,
+      description: "최근에 수집된 데이터일수록 높은 점수를 받습니다. (6시간 이내: +10점)",
+    },
+    {
+      name: "지속성 보너스",
+      maxPoints: 10,
+      description: "꾸준히 검색되는 키워드에 보너스를 부여합니다. (20회 이상 수집: +10점)",
+    },
+    {
+      name: "상품 연관 보너스",
+      maxPoints: 5,
+      description: "연관된 상품이 많을수록 보너스를 받습니다. (5개 이상: +5점)",
+    },
+  ],
+};
 
 interface TrendRankingItem {
   id: string;
@@ -22,7 +49,6 @@ interface TrendRankingItem {
   keyword: {
     id: string;
     keyword: string;
-    category: string | null;
     source: TrendSource;
   };
   products: Array<{
@@ -67,7 +93,6 @@ type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 
 async function fetchTrends(params: {
   period: string;
-  category?: string;
   sortBy?: string;
   page: number;
   limit: number;
@@ -80,9 +105,6 @@ async function fetchTrends(params: {
     page: params.page.toString(),
     limit: params.limit.toString(),
   });
-  if (params.category) {
-    searchParams.set("category", params.category);
-  }
   if (params.sortBy) {
     searchParams.set("sortBy", params.sortBy);
   }
@@ -143,13 +165,11 @@ function getSourceLabel(source: TrendSource) {
 
 export default function TrendsPage() {
   const [period, setPeriod] = useState<"daily" | "monthly">("daily");
-  const [category, setCategory] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<SortOption>("rank");
   const [limit, setLimit] = useState<LimitOption>(50);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isCategoryExpanded, setIsCategoryExpanded] = useState(false);
+  const [isMethodOpen, setIsMethodOpen] = useState(false);
 
-  const { categoryMap, categories } = useCategoryMap();
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -159,11 +179,10 @@ export default function TrendsPage() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["trends", period, category, sortBy, limit, selectedDate],
+    queryKey: ["trends", period, sortBy, limit, selectedDate],
     queryFn: ({ pageParam = 1 }) =>
       fetchTrends({
         period,
-        category,
         sortBy,
         page: pageParam,
         limit,
@@ -205,11 +224,6 @@ export default function TrendsPage() {
   const allRankings =
     data?.pages.flatMap((page) => page.data?.rankings || []) || [];
   const totalCount = data?.pages[0]?.data?.pagination?.total || 0;
-
-  // Category filter - show limited on mobile
-  const visibleCategories = isCategoryExpanded
-    ? categories
-    : categories?.slice(0, 4);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -290,38 +304,82 @@ export default function TrendsPage() {
                     className="px-3 py-2 border rounded-lg text-sm bg-background"
                   />
                 </div>
-
-                {/* Category Filter */}
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Button
-                    variant={!category ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCategory(undefined)}
-                  >
-                    전체
-                  </Button>
-                  {visibleCategories?.map((cat) => (
-                    <Button
-                      key={cat.key}
-                      variant={category === cat.key ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCategory(cat.key)}
-                    >
-                      {cat.name}
-                    </Button>
-                  ))}
-                  {categories && categories.length > 4 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsCategoryExpanded(!isCategoryExpanded)}
-                    >
-                      {isCategoryExpanded ? "접기" : `+${categories.length - 4}개 더보기`}
-                    </Button>
-                  )}
-                </div>
               </div>
             </CardContent>
+          </Card>
+
+          {/* Ranking Method Info */}
+          <Card className="mb-6 border-dashed">
+            <button
+              onClick={() => setIsMethodOpen(!isMethodOpen)}
+              className="w-full text-left"
+            >
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    순위는 어떻게 산정되나요?
+                  </CardTitle>
+                  <svg
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${
+                      isMethodOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </CardHeader>
+            </button>
+            {isMethodOpen && (
+              <CardContent className="pt-0 pb-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {RANKING_METHOD.description}
+                </p>
+                <div className="space-y-3">
+                  {RANKING_METHOD.factors.map((factor) => (
+                    <div
+                      key={factor.name}
+                      className="flex items-start gap-3 text-sm"
+                    >
+                      <div className="flex-shrink-0 w-16 text-right">
+                        <Badge variant="secondary" className="font-mono">
+                          +{factor.maxPoints}
+                        </Badge>
+                      </div>
+                      <div>
+                        <div className="font-medium">{factor.name}</div>
+                        <div className="text-muted-foreground text-xs">
+                          {factor.description}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-3 border-t text-xs text-muted-foreground">
+                  데이터 출처: Google Trends, Zum 실시간 검색어
+                </div>
+              </CardContent>
+            )}
           </Card>
 
           {/* Rankings List */}
@@ -365,12 +423,6 @@ export default function TrendsPage() {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            {item.keyword.category && (
-                              <Badge variant="secondary" className="text-xs">
-                                {categoryMap[item.keyword.category] ||
-                                  item.keyword.category}
-                              </Badge>
-                            )}
                             <span>검색량 {item.searchVolume}</span>
                             <span>연관상품 {item.productCount}개</span>
                           </div>

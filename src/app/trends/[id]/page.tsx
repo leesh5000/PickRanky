@@ -135,7 +135,6 @@ export default async function TrendDetailPage({ params }: PageProps) {
       keyword={{
         id: keyword.id,
         keyword: keyword.keyword,
-        category: keyword.category,
         source: keyword.source,
         createdAt: keyword.createdAt.toISOString(),
       }}

@@ -59,6 +59,31 @@ npm run db:studio    # Open Prisma Studio GUI
 - `src/hooks/useFormPersist.ts` - localStorage-based form persistence with debouncing
 - `src/hooks/useCategories.ts` - Category fetching hook with React Query
 
+### Trend Data Collection
+
+Multi-source trend keyword collection system:
+
+**Sources:**
+- `src/lib/trends/naver-datalab.ts` - Naver DataLab API (requires API keys)
+- `src/lib/trends/google-trends.ts` - Google Trends RSS feed (`https://trends.google.com/trending/rss?geo=KR`)
+- `src/lib/trends/zum-crawler.ts` - Zum homepage crawler (extracts from `window.__INITIAL_STATE__`)
+- `src/lib/trends/daum-crawler.ts` - Daum (currently non-functional, 투데이 버블 is JS-rendered)
+
+**Key Components:**
+- `src/lib/trends/matcher.ts` - Matches trend keywords to products (name similarity, category matching)
+- `src/app/admin/trends/page.tsx` - Admin trend management UI
+
+**Data Flow:**
+1. Collection job fetches trending keywords from enabled sources
+2. Keywords normalized and saved to `TrendKeyword` table
+3. Metrics (search volume, rank) saved to `TrendMetric` table
+4. Matcher associates keywords with products via `TrendProductMatch`
+
+**Environment Variables:**
+- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API
+- `GOOGLE_TRENDS_ENABLED` - Enable Google Trends RSS collection
+- `ZUM_CRAWLING_ENABLED` - Enable Zum homepage crawling
+
 ### Score Algorithm (100 Points Max)
 
 **Video Score Components:**
@@ -72,6 +97,21 @@ npm run db:studio    # Open Prisma Studio GUI
 - Weighted average of top 5 video scores (weights: 1.0, 0.7, 0.5, 0.35, 0.25)
 - Video count bonus: 0-5 points based on number of videos
 - Final score capped at 100
+
+### Trend Score Algorithm (125 Points Max)
+
+`src/lib/trends/ranking-generator.ts` - Generates trend keyword rankings
+
+**Score Components:**
+- Base Score (0-100 points): Latest search volume from trend sources (Google Trends, Zum)
+- Recency Bonus (0-10 points): How recent the latest metric is (6h: +10, 24h: +7, 72h: +4, 1w: +2)
+- Consistency Bonus (0-10 points): Number of metrics collected (20+: +10, 10+: +7, 5+: +4, 2+: +2)
+- Product Match Bonus (0-5 points): Number of matched products (5+: +5, 3+: +3, 1+: +1)
+
+**Ranking Generation:**
+- Rankings are generated per period (DAILY, MONTHLY)
+- Previous period's ranks are compared for rank change display (UP/DOWN/NEW/SAME)
+- Admin triggers ranking generation via `/api/admin/trends/rankings`
 
 ### Public APIs
 
@@ -102,6 +142,20 @@ npm run db:studio    # Open Prisma Studio GUI
 | `/api/admin/analytics` | GET | Analytics data |
 | `/api/admin/opengraph` | GET | Fetch Open Graph metadata |
 | `/api/admin/rankings/[id]` | DELETE | Delete ranking period |
+| `/api/admin/trends` | GET/POST | Trend keyword management |
+| `/api/admin/trends/[id]` | GET/PATCH/DELETE | Trend keyword CRUD |
+| `/api/admin/trends/collect` | POST/GET | Trigger/view trend data collection |
+| `/api/admin/trends/match` | POST | Match keywords to products |
+| `/api/admin/trends/rankings` | POST/GET | Generate rankings / List ranking periods |
+
+### Trend APIs (Public)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/trends` | GET | List trend keywords with filters |
+| `/api/trends/[id]` | GET | Get trend keyword with matched products |
+| `/api/trends/popular` | GET | Get popular trending keywords |
+| `/api/trends/method` | GET | Get ranking calculation method description |
 
 ### Homepage Grid Components
 
@@ -163,6 +217,13 @@ Core models in `prisma/schema.prisma`:
 - `CollectionJob` - Background job status tracking
 - `SystemConfig` - Key-value system configuration
 
+**Trend Models:**
+- `TrendKeyword` - Trend keywords with source (NAVER_DATALAB, GOOGLE_TRENDS, ZUM, DAUM, MANUAL)
+- `TrendMetric` - Search volume/rank metrics per keyword and collection time
+- `TrendProductMatch` - Keyword-to-product associations with match score
+- `TrendRankingPeriod` / `TrendKeywordRanking` - Trend keyword rankings by period
+- `TrendCollectionJob` - Trend collection job tracking
+
 ### Form State Persistence
 
 Admin product registration forms persist data to localStorage:
@@ -190,6 +251,11 @@ Required (see `.env.example`):
 - `YOUTUBE_API_KEY` - YouTube Data API v3 (must be enabled in Google Cloud Console)
 - `NEXTAUTH_SECRET` - Random string for JWT encryption (min 32 chars)
 - `ADMIN_PASSWORD` - Admin password (plain text)
+
+Optional (Trend Collection):
+- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API keys
+- `GOOGLE_TRENDS_ENABLED` - Set to "true" to enable Google Trends RSS
+- `ZUM_CRAWLING_ENABLED` - Set to "true" to enable Zum crawling
 
 ## Known Limitations
 
