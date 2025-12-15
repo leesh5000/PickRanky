@@ -114,6 +114,9 @@ function getCurrentMonthString(): string {
   return format(today, "yyyy-MM");
 }
 
+// 모바일에서 기본으로 보여줄 카테고리 개수
+const MOBILE_CATEGORY_LIMIT = 3;
+
 export default function RankingsPage() {
   const [period, setPeriod] = useState("daily");
   const [category, setCategory] = useState<string | undefined>();
@@ -121,6 +124,7 @@ export default function RankingsPage() {
   const [limit, setLimit] = useState<LimitOption>(50);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const { categoryMap, categories } = useCategoryMap();
 
@@ -157,7 +161,9 @@ export default function RankingsPage() {
         day: dateParams.day,
       }),
     getNextPageParam: (lastPage) => {
-      const { page, totalPages } = lastPage.data.pagination;
+      const pagination = lastPage?.data?.pagination;
+      if (!pagination) return undefined;
+      const { page, totalPages } = pagination;
       return page < totalPages ? page + 1 : undefined;
     },
     initialPageParam: 1,
@@ -227,6 +233,7 @@ export default function RankingsPage() {
             ))}
           </div>
 
+          {/* 카테고리 필터 - 데스크톱: 전체 표시, 모바일: 제한된 개수 + 더보기 */}
           <div className="flex gap-2 flex-wrap">
             <Button
               variant={!category ? "default" : "outline"}
@@ -235,16 +242,44 @@ export default function RankingsPage() {
             >
               전체
             </Button>
-            {categories?.map((cat) => (
-              <Button
-                key={cat.key}
-                variant={category === cat.key ? "default" : "outline"}
-                onClick={() => handleFilterChange(undefined, cat.key)}
-                size="sm"
-              >
-                {cat.name}
-              </Button>
-            ))}
+            {/* 데스크톱: 모든 카테고리 표시 */}
+            <div className="hidden sm:flex gap-2 flex-wrap">
+              {categories?.map((cat) => (
+                <Button
+                  key={cat.key}
+                  variant={category === cat.key ? "default" : "outline"}
+                  onClick={() => handleFilterChange(undefined, cat.key)}
+                  size="sm"
+                >
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
+            {/* 모바일: 제한된 개수만 표시 + 더보기 버튼 */}
+            <div className="flex sm:hidden gap-2 flex-wrap">
+              {categories
+                ?.slice(0, showAllCategories ? undefined : MOBILE_CATEGORY_LIMIT)
+                .map((cat) => (
+                  <Button
+                    key={cat.key}
+                    variant={category === cat.key ? "default" : "outline"}
+                    onClick={() => handleFilterChange(undefined, cat.key)}
+                    size="sm"
+                  >
+                    {cat.name}
+                  </Button>
+                ))}
+              {categories && categories.length > MOBILE_CATEGORY_LIMIT && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  className="text-muted-foreground"
+                >
+                  {showAllCategories ? "접기 ▲" : `+${categories.length - MOBILE_CATEGORY_LIMIT}개 더보기`}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Sort & Limit Selectors */}
