@@ -46,10 +46,11 @@ model Product {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  videos       Video[]
-  rankings     ProductRanking[]
-  clicks       LinkClick[]
-  trendMatches TrendProductMatch[]
+  videos          Video[]
+  rankings        ProductRanking[]
+  clicks          LinkClick[]
+  trendMatches    TrendProductMatch[]
+  articleProducts ArticleProduct[]
 
   @@index([category])
   @@index([isActive])
@@ -245,6 +246,113 @@ model SystemConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_configs")
+}
+
+// =====================
+// Article Models
+// =====================
+
+enum ArticleSource {
+  NAVER
+  GOOGLE
+}
+
+model Article {
+  id           String        @id @default(cuid())
+  title        String
+  summary      String?       @db.Text
+  originalUrl  String        @unique @map("original_url")
+  thumbnailUrl String?       @map("thumbnail_url")
+  source       ArticleSource
+  category     String?
+  publishedAt  DateTime      @map("published_at")
+  collectedAt  DateTime      @default(now()) @map("collected_at")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  products ArticleProduct[]
+  rankings ArticleRanking[]
+  views    ArticleView[]
+  shares   ArticleShare[]
+
+  @@index([source])
+  @@index([category])
+  @@index([publishedAt])
+  @@index([isActive])
+  @@map("articles")
+}
+
+model ArticleProduct {
+  id        String   @id @default(cuid())
+  articleId String   @map("article_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, productId])
+  @@map("article_products")
+}
+
+model ArticleRankingPeriod {
+  id         String     @id @default(cuid())
+  periodType PeriodType @map("period_type")
+  year       Int
+  month      Int?
+  day        Int?
+  startedAt  DateTime   @map("started_at")
+  endedAt    DateTime   @map("ended_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  rankings ArticleRanking[]
+
+  @@unique([periodType, year, month, day])
+  @@map("article_ranking_periods")
+}
+
+model ArticleRanking {
+  id           String   @id @default(cuid())
+  articleId    String   @map("article_id")
+  periodId     String   @map("period_id")
+  rank         Int
+  previousRank Int?     @map("previous_rank")
+  score        Float
+  viewCount    Int      @map("view_count")
+  shareCount   Int      @map("share_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  article Article              @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  period  ArticleRankingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, periodId])
+  @@index([periodId, rank])
+  @@map("article_rankings")
+}
+
+model ArticleView {
+  id        String   @id @default(cuid())
+  articleId String   @map("article_id")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@index([viewedAt])
+  @@map("article_views")
+}
+
+model ArticleShare {
+  id        String   @id @default(cuid())
+  articleId String   @map("article_id")
+  platform  String?
+  sharedAt  DateTime @default(now()) @map("shared_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@map("article_shares")
 }
 
 // =====================

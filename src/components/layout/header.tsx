@@ -6,8 +6,8 @@ import { ThemeToggle } from "../ui/theme-toggle";
 
 const NAV_ITEMS = [
   { name: "상품", href: "/rankings", active: true },
-  { name: "검색어", href: "/trends", active: true },
-  { name: "기사", href: "#", active: false },
+  { name: "기사", href: "/news", active: true },
+  { name: "검색어", href: "#", active: false },
   { name: "커뮤니티", href: "#", active: false },
 ];
 

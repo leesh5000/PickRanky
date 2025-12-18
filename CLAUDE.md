@@ -16,8 +16,8 @@ PickRanky (formerly PickTrend) is a trending shopping product ranking service th
 - **Styling**: Tailwind CSS + Radix UI primitives
 - **State**: React Query (server) + Zustand (client)
 - **Auth**: NextAuth.js with Credentials provider
-- **APIs**: YouTube Data API v3, Coupang affiliate
-- **Utilities**: cheerio (HTML parsing), date-fns (date formatting), zod (validation)
+- **APIs**: YouTube Data API v3, Coupang affiliate, OpenAI GPT (article summarization)
+- **Utilities**: cheerio (HTML parsing), date-fns (date formatting), zod (validation), fast-xml-parser (RSS parsing)
 
 ## Commands
 
@@ -104,6 +104,37 @@ Multi-source trend keyword collection system:
 - `THEQOO_CRAWLING_ENABLED` - Enable TheQoo HOT crawling
 - `CLUSTER_SIMILARITY_THRESHOLD` - Minimum similarity for clustering (default: 0.7)
 
+### Article Trends System
+
+AI-summarized news article collection and ranking system:
+
+**Collection Sources:**
+- `src/lib/article/naver-rss.ts` - Naver News RSS feeds by section (IT/과학, 생활/문화)
+- `src/lib/article/google-news.ts` - Google News RSS keyword search
+- `src/lib/article/content-fetcher.ts` - Article content scraper with site-specific selectors
+- `src/lib/article/collector.ts` - Collection orchestration (dedup, save, summarize, link products)
+
+**AI Summarization:**
+- `src/lib/openai/client.ts` - Lazy-initialized OpenAI client (gpt-3.5-turbo)
+- Functions: `summarizeArticle()`, `classifyCategory()`, `extractKeywords()`
+- Summary max 300 chars, Korean language
+
+**Ranking System:**
+- `src/lib/article/score-calculator.ts` - Article scoring (viewScore 0-50, shareScore 0-30, recencyScore 0-20)
+- `src/lib/article/aggregator.ts` - Ranking period management (DAILY, MONTHLY)
+
+**Vercel Cron Jobs:**
+- `/api/cron/collect-articles` - Daily 07:00 KST (UTC 22:00)
+- `/api/cron/calculate-article-rankings` - Daily 07:30 KST (UTC 22:30)
+
+**Environment Variables:**
+- `OPENAI_API_KEY` - OpenAI API key for summarization
+- `CRON_SECRET` - Vercel Cron authentication
+
+**Known Issues:**
+- Google News RSS URLs are redirect URLs; server-side crawling may fail
+- Naver RSS works better but may have DNS issues in local environment
+
 ### Score Algorithm (100 Points Max)
 
 **Video Score Components:**
@@ -168,6 +199,10 @@ Multi-source trend keyword collection system:
 | `/api/admin/trends/match` | POST | Match keywords to products |
 | `/api/admin/trends/rankings` | POST/GET | Generate rankings / List ranking periods |
 | `/api/admin/trends/cluster` | POST/GET | Cluster keywords by similarity / List clusters |
+| `/api/admin/articles` | GET/POST | Article list / Create article |
+| `/api/admin/articles/[id]` | GET/PATCH/DELETE | Article CRUD |
+| `/api/admin/articles/[id]/products` | GET/POST/DELETE | Article-product associations |
+| `/api/admin/articles/summarize` | POST | Fetch URL and generate AI summary |
 
 ### Trend APIs (Public)
 
@@ -177,6 +212,15 @@ Multi-source trend keyword collection system:
 | `/api/trends/[id]` | GET | Get trend keyword with matched products |
 | `/api/trends/popular` | GET | Get popular trending keywords |
 | `/api/trends/method` | GET | Get ranking calculation method description |
+
+### Article APIs (Public)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/news` | GET | List article rankings (period, category, source filters) |
+| `/api/news/[id]` | GET | Get article detail with related products |
+| `/api/track/article-view` | POST | Track article view |
+| `/api/track/article-share` | POST | Track article share |
 
 ### Homepage Grid Components
 
@@ -247,6 +291,12 @@ Core models in `prisma/schema.prisma`:
 - `TrendKeywordCluster` - Groups of similar keywords from multiple sources
 - `TrendKeywordClusterMember` - Keyword membership in clusters with similarity scores
 
+**Article Models:**
+- `Article` - News articles with source (NAVER, GOOGLE), AI summary, category
+- `ArticleProduct` - Article-to-product associations
+- `ArticleRankingPeriod` / `ArticleRanking` - Article rankings by period (DAILY, MONTHLY)
+- `ArticleView` / `ArticleShare` - Article view and share tracking
+
 ### Form State Persistence
 
 Admin product registration forms persist data to localStorage:
@@ -283,6 +333,10 @@ Optional (Trend Collection):
 - `FMKOREA_CRAWLING_ENABLED` - Set to "true" to enable FM Korea crawling
 - `THEQOO_CRAWLING_ENABLED` - Set to "true" to enable TheQoo crawling
 - `CLUSTER_SIMILARITY_THRESHOLD` - Similarity threshold for clustering (default: 0.7)
+
+Optional (Article Collection):
+- `OPENAI_API_KEY` - OpenAI API key for article summarization
+- `CRON_SECRET` - Vercel Cron job authentication secret
 
 ## Known Limitations
 
