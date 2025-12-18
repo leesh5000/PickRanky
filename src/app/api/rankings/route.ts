@@ -56,13 +56,83 @@ export async function GET(request: NextRequest) {
       orderBy: { startedAt: "desc" },
     });
 
+    // If no ranking period found, fallback to direct product query
     if (!rankingPeriod) {
+      // Build product filter
+      const fallbackProductFilter: any = { isActive: true };
+      if (category) {
+        fallbackProductFilter.category = category;
+      }
+
+      // Get total count for fallback
+      const fallbackTotalCount = await prisma.product.count({
+        where: fallbackProductFilter,
+      });
+
+      // Build orderBy for fallback based on sortBy parameter
+      let fallbackOrderBy: any = { createdAt: "desc" };
+      if (sortBy === "price") {
+        fallbackOrderBy = { price: "asc" };
+      } else if (sortBy === "priceDesc") {
+        fallbackOrderBy = { price: "desc" };
+      } else if (sortBy === "discount") {
+        fallbackOrderBy = { discountRate: "desc" };
+      } else if (sortBy === "videoCount") {
+        fallbackOrderBy = [
+          { videos: { _count: "desc" } },
+          { createdAt: "desc" },
+        ];
+      }
+
+      // Get products with pagination
+      const fallbackProducts = await prisma.product.findMany({
+        where: fallbackProductFilter,
+        include: {
+          videos: {
+            take: 1,
+            orderBy: { createdAt: "desc" },
+          },
+          _count: {
+            select: { videos: true },
+          },
+        },
+        orderBy: fallbackOrderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      // Transform to ranking-like format
+      const fallbackRankings = fallbackProducts.map((product, index) => ({
+        id: `fallback-${product.id}`,
+        rank: (page - 1) * limit + index + 1,
+        previousRank: null,
+        score: 0,
+        totalViews: 0,
+        totalLikes: 0,
+        videoCount: product._count.videos,
+        product: {
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          thumbnailUrl: product.thumbnailUrl,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          discountRate: product.discountRate,
+        },
+        change: { type: "NEW" as const, value: null, label: "NEW" },
+      }));
+
       return NextResponse.json({
         success: true,
         data: {
           period: null,
-          rankings: [],
-          pagination: { page, limit, total: 0, totalPages: 0 },
+          rankings: fallbackRankings,
+          pagination: {
+            page,
+            limit,
+            total: fallbackTotalCount,
+            totalPages: Math.ceil(fallbackTotalCount / limit),
+          },
         },
       });
     }
