@@ -15,13 +15,6 @@ const TREND_SERVICES = [
     active: true,
   },
   {
-    name: "검색어 트렌드",
-    description: "지금 가장 많이 검색되는 키워드",
-    icon: "🔍",
-    href: "#",
-    active: false,
-  },
-  {
     name: "기사 트렌드",
     description: "화제의 뉴스와 핫한 기사",
     icon: "📰",
@@ -97,7 +90,7 @@ export default function Home() {
               모든 트렌드를 한눈에
             </p>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              상품, 검색어, 기사, 커뮤니티까지
+              상품, 기사, 커뮤니티까지
               <br />
               지금 가장 핫한 트렌드를 확인하세요
             </p>
@@ -251,7 +244,7 @@ export default function Home() {
                 <div className="text-muted-foreground">트렌드 업데이트</div>
               </div>
               <div className="p-6 rounded-lg border bg-card">
-                <div className="text-3xl font-bold text-primary mb-2">4가지</div>
+                <div className="text-3xl font-bold text-primary mb-2">3가지</div>
                 <div className="text-muted-foreground">트렌드 서비스</div>
               </div>
               <div className="p-6 rounded-lg border bg-card">
