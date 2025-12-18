@@ -17,12 +17,13 @@ PickRanky (formerly PickTrend) is a trending shopping product ranking service th
 - **State**: React Query (server) + Zustand (client)
 - **Auth**: NextAuth.js with Credentials provider
 - **APIs**: YouTube Data API v3, Coupang affiliate
+- **Utilities**: cheerio (HTML parsing), date-fns (date formatting), zod (validation)
 
 ## Commands
 
 ```bash
 # Development
-npm run dev          # Start dev server (auto-runs prisma generate)
+npm run dev          # Start dev server (runs prisma generate via predev hook)
 npm run build        # Production build (includes prisma generate)
 npm run lint         # ESLint
 
@@ -32,6 +33,8 @@ npm run db:push      # Push schema changes (no migration)
 npm run db:migrate   # Create and run migrations (dev only)
 npm run db:studio    # Open Prisma Studio GUI
 ```
+
+Note: On Windows, `predev` script may not run automatically. Run `npm run db:generate` manually if Prisma client is not generated.
 
 ## Architecture
 
@@ -59,6 +62,48 @@ npm run db:studio    # Open Prisma Studio GUI
 - `src/hooks/useFormPersist.ts` - localStorage-based form persistence with debouncing
 - `src/hooks/useCategories.ts` - Category fetching hook with React Query
 
+### Trend Data Collection
+
+Multi-source trend keyword collection system:
+
+**Search Trend Sources:**
+- `src/lib/trends/naver-datalab.ts` - Naver DataLab API (requires API keys)
+- `src/lib/trends/google-trends.ts` - Google Trends RSS feed (`https://trends.google.com/trending/rss?geo=KR`)
+- `src/lib/trends/zum-crawler.ts` - Zum homepage crawler (extracts from `window.__INITIAL_STATE__`)
+- `src/lib/trends/daum-crawler.ts` - Daum (non-functional: 투데이 버블 requires JS rendering)
+
+**Community Crawlers:**
+- `src/lib/trends/dcinside-crawler.ts` - DC Inside 실시간 베스트 (`gall.dcinside.com/board/lists/?id=dcbest`)
+- `src/lib/trends/fmkorea-crawler.ts` - FM Korea 인기글 (`www.fmkorea.com/best`)
+- `src/lib/trends/theqoo-crawler.ts` - TheQoo HOT (`theqoo.net/hot`)
+
+**Key Components:**
+- `src/lib/trends/matcher.ts` - Matches trend keywords to products (name similarity, category matching)
+- `src/lib/trends/keyword-cluster.ts` - Similarity-based keyword clustering (Jaro-Winkler + N-gram)
+- `src/app/admin/trends/page.tsx` - Admin trend management UI
+
+**Clustering System:**
+- Groups similar keywords from different sources using similarity threshold (default: 0.7)
+- Uses combined Jaro-Winkler and N-gram similarity for better matching
+- Cross-source bonus applied when keyword appears in multiple sources
+- Models: `TrendKeywordCluster`, `TrendKeywordClusterMember`
+
+**Data Flow:**
+1. Collection job fetches trending keywords from enabled sources
+2. Keywords normalized and saved to `TrendKeyword` table
+3. Metrics (search volume, rank) saved to `TrendMetric` table
+4. Clustering groups similar keywords via `TrendKeywordCluster`
+5. Matcher associates keywords with products via `TrendProductMatch`
+
+**Environment Variables:**
+- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API
+- `GOOGLE_TRENDS_ENABLED` - Enable Google Trends RSS collection
+- `ZUM_CRAWLING_ENABLED` - Enable Zum homepage crawling
+- `DCINSIDE_CRAWLING_ENABLED` - Enable DC Inside 실시간 베스트 crawling
+- `FMKOREA_CRAWLING_ENABLED` - Enable FM Korea 인기글 crawling
+- `THEQOO_CRAWLING_ENABLED` - Enable TheQoo HOT crawling
+- `CLUSTER_SIMILARITY_THRESHOLD` - Minimum similarity for clustering (default: 0.7)
+
 ### Score Algorithm (100 Points Max)
 
 **Video Score Components:**
@@ -72,6 +117,21 @@ npm run db:studio    # Open Prisma Studio GUI
 - Weighted average of top 5 video scores (weights: 1.0, 0.7, 0.5, 0.35, 0.25)
 - Video count bonus: 0-5 points based on number of videos
 - Final score capped at 100
+
+### Trend Score Algorithm (125 Points Max)
+
+`src/lib/trends/ranking-generator.ts` - Generates trend keyword rankings
+
+**Score Components:**
+- Base Score (0-100 points): Latest search volume from trend sources (Google Trends, Zum)
+- Recency Bonus (0-10 points): How recent the latest metric is (6h: +10, 24h: +7, 72h: +4, 1w: +2)
+- Consistency Bonus (0-10 points): Number of metrics collected (20+: +10, 10+: +7, 5+: +4, 2+: +2)
+- Product Match Bonus (0-5 points): Number of matched products (5+: +5, 3+: +3, 1+: +1)
+
+**Ranking Generation:**
+- Rankings are generated per period (DAILY, MONTHLY)
+- Previous period's ranks are compared for rank change display (UP/DOWN/NEW/SAME)
+- Admin triggers ranking generation via `/api/admin/trends/rankings`
 
 ### Public APIs
 
@@ -102,6 +162,21 @@ npm run db:studio    # Open Prisma Studio GUI
 | `/api/admin/analytics` | GET | Analytics data |
 | `/api/admin/opengraph` | GET | Fetch Open Graph metadata |
 | `/api/admin/rankings/[id]` | DELETE | Delete ranking period |
+| `/api/admin/trends` | GET/POST | Trend keyword management |
+| `/api/admin/trends/[id]` | GET/PATCH/DELETE | Trend keyword CRUD |
+| `/api/admin/trends/collect` | POST/GET | Trigger/view trend data collection |
+| `/api/admin/trends/match` | POST | Match keywords to products |
+| `/api/admin/trends/rankings` | POST/GET | Generate rankings / List ranking periods |
+| `/api/admin/trends/cluster` | POST/GET | Cluster keywords by similarity / List clusters |
+
+### Trend APIs (Public)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/trends` | GET | List trend keywords with filters |
+| `/api/trends/[id]` | GET | Get trend keyword with matched products |
+| `/api/trends/popular` | GET | Get popular trending keywords |
+| `/api/trends/method` | GET | Get ranking calculation method description |
 
 ### Homepage Grid Components
 
@@ -163,6 +238,15 @@ Core models in `prisma/schema.prisma`:
 - `CollectionJob` - Background job status tracking
 - `SystemConfig` - Key-value system configuration
 
+**Trend Models:**
+- `TrendKeyword` - Trend keywords with source (NAVER_DATALAB, GOOGLE_TRENDS, ZUM, DAUM, DCINSIDE, FMKOREA, THEQOO, MANUAL)
+- `TrendMetric` - Search volume/rank metrics per keyword and collection time
+- `TrendProductMatch` - Keyword-to-product associations with match score
+- `TrendRankingPeriod` / `TrendKeywordRanking` - Trend keyword rankings by period
+- `TrendCollectionJob` - Trend collection job tracking
+- `TrendKeywordCluster` - Groups of similar keywords from multiple sources
+- `TrendKeywordClusterMember` - Keyword membership in clusters with similarity scores
+
 ### Form State Persistence
 
 Admin product registration forms persist data to localStorage:
@@ -190,6 +274,15 @@ Required (see `.env.example`):
 - `YOUTUBE_API_KEY` - YouTube Data API v3 (must be enabled in Google Cloud Console)
 - `NEXTAUTH_SECRET` - Random string for JWT encryption (min 32 chars)
 - `ADMIN_PASSWORD` - Admin password (plain text)
+
+Optional (Trend Collection):
+- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API keys
+- `GOOGLE_TRENDS_ENABLED` - Set to "true" to enable Google Trends RSS
+- `ZUM_CRAWLING_ENABLED` - Set to "true" to enable Zum crawling
+- `DCINSIDE_CRAWLING_ENABLED` - Set to "true" to enable DC Inside crawling
+- `FMKOREA_CRAWLING_ENABLED` - Set to "true" to enable FM Korea crawling
+- `THEQOO_CRAWLING_ENABLED` - Set to "true" to enable TheQoo crawling
+- `CLUSTER_SIMILARITY_THRESHOLD` - Similarity threshold for clustering (default: 0.7)
 
 ## Known Limitations
 
