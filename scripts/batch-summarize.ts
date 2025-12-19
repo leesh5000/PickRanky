@@ -28,7 +28,7 @@ async function summarizeFromMetadata(
       : `제목: ${title}`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `당신은 쇼핑 트렌드 뉴스 기사를 요약하는 전문가입니다.
 - 주어진 제목과 설명을 바탕으로 200자 이내의 요약을 작성하세요.

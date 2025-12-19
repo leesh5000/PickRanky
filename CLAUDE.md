@@ -115,7 +115,7 @@ AI-summarized news article collection and ranking system:
 - `src/lib/article/collector.ts` - Collection orchestration (dedup, save, summarize, link products)
 
 **AI Summarization:**
-- `src/lib/gemini/client.ts` - Lazy-initialized Google Gemini client (gemini-2.0-flash)
+- `src/lib/gemini/client.ts` - Lazy-initialized Google Gemini client (gemini-2.5-flash)
 - Functions: `summarizeArticle()`, `summarizeFromMetadata()`, `classifyCategory()`, `extractKeywords()`
 - `summarizeFromMetadata()` - Generates summary from title+description when content crawling fails
 - Summary max 300 chars, Korean language

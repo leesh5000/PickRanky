@@ -32,7 +32,7 @@ export async function summarizeArticle(
 
   try {
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `당신은 쇼핑 트렌드 기사를 요약하는 전문가입니다.
 - 핵심 내용을 ${maxLength}자 이내로 간결하게 요약해주세요.
@@ -64,7 +64,7 @@ export async function classifyCategory(
 
   try {
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `기사를 다음 카테고리 중 하나로 분류하세요:
 - electronics: 스마트폰, 노트북, 태블릿, 이어폰, IT 기기
@@ -111,7 +111,7 @@ export async function summarizeFromMetadata(
 
   try {
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `당신은 쇼핑 트렌드 뉴스 기사를 요약하는 전문가입니다.
 - 주어진 제목과 설명을 바탕으로 ${maxLength}자 이내의 요약을 작성하세요.
@@ -140,7 +140,7 @@ export async function extractKeywords(content: string): Promise<string[]> {
 
   try {
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `기사에서 쇼핑/제품 관련 핵심 키워드를 5개 이하로 추출하세요.
 제품명, 브랜드명, 카테고리 등을 포함하세요.
