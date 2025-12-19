@@ -227,20 +227,43 @@ async function processArticleSummary(
     const content = await fetchArticleContentWithRetry(url);
 
     let summary: string | null = null;
+    let isAiGenerated = false; // AI 요약 여부 추적
 
     if (content && content.content) {
       // 본문 크롤링 성공 시 전체 내용으로 요약 생성
       summary = await summarizeArticle(content.content);
+      if (summary) isAiGenerated = true;
     }
 
     // 2. 본문 크롤링 실패 또는 요약 생성 실패 시 제목/설명으로 요약 생성
     if (!summary) {
       console.log(`본문 크롤링 실패, 메타데이터로 요약 생성 시도: ${url}`);
       summary = await summarizeFromMetadata(title, description);
+      if (summary) isAiGenerated = true;
+    }
+
+    // 3. AI 요약 생성 실패 시 원본 description을 요약으로 사용 (Gemini API 할당량 절약)
+    // 이 경우 AI가 생성한 요약이 아닌 RSS에서 가져온 원본 설명임
+    // 단, Google News의 경우 description이 "출처: ..." 형태로만 제공되어 유용하지 않음
+    if (!summary) {
+      // description이 유효한 경우에만 사용 (출처 정보만 있는 경우 제외)
+      const hasValidDescription = description &&
+        description.length > 20 &&
+        !description.startsWith("출처:");
+
+      if (hasValidDescription) {
+        console.log(`AI 요약 실패, 원본 description 사용: ${url}`);
+        summary = description;
+      } else {
+        // description이 없거나 유용하지 않으면 제목을 요약으로 사용
+        console.log(`AI 요약 실패, 제목을 요약으로 사용: ${url}`);
+        summary = title;
+      }
+      isAiGenerated = false;
     }
 
     if (!summary) {
-      console.log(`요약 생성 최종 실패: ${url}`);
+      console.log(`요약 생성 최종 실패 (description도 없음): ${url}`);
       return false;
     }
 
@@ -251,6 +274,13 @@ async function processArticleSummary(
         summary,
       },
     });
+
+    // 로그에 AI 요약 여부 표시
+    if (isAiGenerated) {
+      console.log(`AI 요약 생성 완료: ${articleId}`);
+    } else {
+      console.log(`원본 description 사용 (AI 요약 아님): ${articleId}`);
+    }
 
     return true;
   } catch (error) {
