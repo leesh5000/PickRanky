@@ -2,7 +2,7 @@ import { ArticleSource } from "@prisma/client";
 import { fetchAllNaverRss, type ParsedArticle as NaverArticle } from "./naver-rss";
 import { fetchAllGoogleNews, type ParsedArticle as GoogleArticle } from "./google-news";
 import { fetchArticleContentWithRetry } from "./content-fetcher";
-import { summarizeArticle, summarizeFromMetadata } from "@/lib/openai/client";
+import { summarizeArticle, summarizeFromMetadata } from "@/lib/gemini/client";
 import prisma from "@/lib/prisma";
 
 type ParsedArticle = NaverArticle | GoogleArticle;

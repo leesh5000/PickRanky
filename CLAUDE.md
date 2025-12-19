@@ -16,7 +16,7 @@ PickRanky (formerly PickTrend) is a trending shopping product ranking service th
 - **Styling**: Tailwind CSS + Radix UI primitives
 - **State**: React Query (server) + Zustand (client)
 - **Auth**: NextAuth.js with Credentials provider
-- **APIs**: YouTube Data API v3, Coupang affiliate, OpenAI GPT (article summarization)
+- **APIs**: YouTube Data API v3, Coupang affiliate, Google Gemini (article summarization)
 - **Utilities**: cheerio (HTML parsing), date-fns (date formatting), zod (validation), fast-xml-parser (RSS parsing)
 
 ## Commands
@@ -115,9 +115,15 @@ AI-summarized news article collection and ranking system:
 - `src/lib/article/collector.ts` - Collection orchestration (dedup, save, summarize, link products)
 
 **AI Summarization:**
-- `src/lib/openai/client.ts` - Lazy-initialized OpenAI client (gpt-3.5-turbo)
-- Functions: `summarizeArticle()`, `classifyCategory()`, `extractKeywords()`
+- `src/lib/gemini/client.ts` - Lazy-initialized Google Gemini client (gemini-2.0-flash)
+- Functions: `summarizeArticle()`, `summarizeFromMetadata()`, `classifyCategory()`, `extractKeywords()`
+- `summarizeFromMetadata()` - Generates summary from title+description when content crawling fails
 - Summary max 300 chars, Korean language
+
+**Batch Summarization:**
+- `scripts/batch-summarize.ts` - CLI script to generate summaries for articles without them
+- `/api/admin/articles/batch-summarize` - API endpoint for batch summarization (GET: stats, POST: process)
+- Usage: `npx tsx scripts/batch-summarize.ts [limit]` (default: 20, max: 50)
 
 **Ranking System:**
 - `src/lib/article/score-calculator.ts` - Article scoring (viewScore 0-50, shareScore 0-30, recencyScore 0-20)
@@ -128,11 +134,12 @@ AI-summarized news article collection and ranking system:
 - `/api/cron/calculate-article-rankings` - Daily 07:30 KST (UTC 22:30)
 
 **Environment Variables:**
-- `OPENAI_API_KEY` - OpenAI API key for summarization
+- `GEMINI_API_KEY` - Google Gemini API key for summarization
 - `CRON_SECRET` - Vercel Cron authentication
 
 **Known Issues:**
-- Google News RSS URLs are redirect URLs; server-side crawling may fail
+- Google News RSS URLs are JavaScript redirects; server-side crawling often fails
+- When content crawling fails, `summarizeFromMetadata()` generates summary from title+description instead
 - Naver RSS works better but may have DNS issues in local environment
 
 ### Score Algorithm (100 Points Max)
@@ -203,6 +210,7 @@ AI-summarized news article collection and ranking system:
 | `/api/admin/articles/[id]` | GET/PATCH/DELETE | Article CRUD |
 | `/api/admin/articles/[id]/products` | GET/POST/DELETE | Article-product associations |
 | `/api/admin/articles/summarize` | POST | Fetch URL and generate AI summary |
+| `/api/admin/articles/batch-summarize` | GET/POST | Get summary stats / Batch generate summaries |
 
 ### Trend APIs (Public)
 
@@ -292,7 +300,7 @@ Core models in `prisma/schema.prisma`:
 - `TrendKeywordClusterMember` - Keyword membership in clusters with similarity scores
 
 **Article Models:**
-- `Article` - News articles with source (NAVER, GOOGLE), AI summary, category
+- `Article` - News articles with source (NAVER, GOOGLE), description (RSS), AI summary, category
 - `ArticleProduct` - Article-to-product associations
 - `ArticleRankingPeriod` / `ArticleRanking` - Article rankings by period (DAILY, MONTHLY)
 - `ArticleView` / `ArticleShare` - Article view and share tracking
@@ -335,7 +343,7 @@ Optional (Trend Collection):
 - `CLUSTER_SIMILARITY_THRESHOLD` - Similarity threshold for clustering (default: 0.7)
 
 Optional (Article Collection):
-- `OPENAI_API_KEY` - OpenAI API key for article summarization
+- `GEMINI_API_KEY` - Google Gemini API key for article summarization (get from https://aistudio.google.com/app/apikey)
 - `CRON_SECRET` - Vercel Cron job authentication secret
 
 ## Known Limitations

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { summarizeFromMetadata } from "@/lib/openai/client";
+import { summarizeFromMetadata } from "@/lib/gemini/client";
 
 export const maxDuration = 300; // 5 minutes timeout
 

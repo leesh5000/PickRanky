@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Use direct URL to avoid PgBouncer prepared statement issues
 const databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
@@ -11,9 +11,7 @@ const prisma = new PrismaClient({
   },
 });
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 async function summarizeFromMetadata(
   title: string,
@@ -30,30 +28,24 @@ async function summarizeFromMetadata(
       : `제목: ${title}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `당신은 쇼핑 트렌드 뉴스 기사를 요약하는 전문가입니다.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const prompt = `당신은 쇼핑 트렌드 뉴스 기사를 요약하는 전문가입니다.
 - 주어진 제목과 설명을 바탕으로 200자 이내의 요약을 작성하세요.
 - 한국어로 작성하세요.
 - 객관적인 톤을 유지하세요.
 - 핵심 내용과 트렌드를 강조하세요.
-- 제품명, 브랜드명이 있다면 포함하세요.`,
-        },
-        {
-          role: "user",
-          content: `다음 기사 정보를 바탕으로 요약을 작성해주세요:\n\n${inputText}`,
-        },
-      ],
-      max_tokens: 300,
-      temperature: 0.3,
-    });
+- 제품명, 브랜드명이 있다면 포함하세요.
 
-    return response.choices[0]?.message?.content?.trim() || null;
+다음 기사 정보를 바탕으로 요약을 작성해주세요:
+
+${inputText}`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    return response.text()?.trim() || null;
   } catch (error) {
-    console.error("OpenAI 요약 생성 오류:", error);
+    console.error("Gemini 요약 생성 오류:", error);
     return null;
   }
 }

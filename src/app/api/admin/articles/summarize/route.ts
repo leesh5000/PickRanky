@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { fetchArticleContentWithRetry } from "@/lib/article/content-fetcher";
-import { summarizeArticle, classifyCategory } from "@/lib/openai/client";
+import { summarizeArticle, classifyCategory } from "@/lib/gemini/client";
 
 interface SummarizeRequest {
   url: string;
