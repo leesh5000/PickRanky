@@ -57,11 +57,29 @@ export async function GET(request: NextRequest) {
     });
 
     // If no ranking period found, fallback to direct product query
+    // 상품 등록일(createdAt) 기준으로 필터링
     if (!rankingPeriod) {
       // Build product filter
       const fallbackProductFilter: any = { isActive: true };
       if (category) {
         fallbackProductFilter.category = category;
+      }
+
+      // 날짜 기준 필터링 (상품 등록일 기준)
+      if (periodType === "DAILY") {
+        const startDate = new Date(year, month - 1, day, 0, 0, 0);
+        const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+        fallbackProductFilter.createdAt = {
+          gte: startDate,
+          lte: endDate,
+        };
+      } else if (periodType === "MONTHLY") {
+        const startDate = new Date(year, month - 1, 1, 0, 0, 0);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999); // 해당 월의 마지막 날
+        fallbackProductFilter.createdAt = {
+          gte: startDate,
+          lte: endDate,
+        };
       }
 
       // Get total count for fallback
@@ -141,6 +159,23 @@ export async function GET(request: NextRequest) {
     const productFilter: any = { isActive: true };
     if (category) {
       productFilter.category = category;
+    }
+
+    // 날짜 기준 필터링 (상품 등록일 기준)
+    if (periodType === "DAILY") {
+      const startDate = new Date(year, month - 1, day, 0, 0, 0);
+      const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+      productFilter.createdAt = {
+        gte: startDate,
+        lte: endDate,
+      };
+    } else if (periodType === "MONTHLY") {
+      const startDate = new Date(year, month - 1, 1, 0, 0, 0);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+      productFilter.createdAt = {
+        gte: startDate,
+        lte: endDate,
+      };
     }
 
     // Get total count
