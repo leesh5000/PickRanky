@@ -62,6 +62,9 @@ async function fetchNews(params: {
   source?: SourceFilter;
   page: number;
   limit: number;
+  year?: number;
+  month?: number;
+  day?: number;
 }): Promise<NewsResponse> {
   const searchParams = new URLSearchParams({
     period: params.period,
@@ -75,10 +78,31 @@ async function fetchNews(params: {
   if (params.source && params.source !== "all") {
     searchParams.set("source", params.source);
   }
+  if (params.year) {
+    searchParams.set("year", params.year.toString());
+  }
+  if (params.month) {
+    searchParams.set("month", params.month.toString());
+  }
+  if (params.day) {
+    searchParams.set("day", params.day.toString());
+  }
 
   const res = await fetch(`/api/news?${searchParams}`);
   if (!res.ok) throw new Error("Failed to fetch news");
   return res.json();
+}
+
+// Get today's date in YYYY-MM-DD format
+function getTodayString(): string {
+  const today = new Date();
+  return format(today, "yyyy-MM-dd");
+}
+
+// Get current month in YYYY-MM format
+function getCurrentMonthString(): string {
+  const today = new Date();
+  return format(today, "yyyy-MM");
 }
 
 function getRankChange(rank: number, previousRank: number | null) {
@@ -109,9 +133,24 @@ export default function NewsPage() {
   const [category, setCategory] = useState<string | undefined>();
   const [source, setSource] = useState<SourceFilter>("all");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
 
   const { categoryMap } = useCategoryMap();
   const observerRef = useRef<HTMLDivElement>(null);
+
+  // Parse selected date/month into year, month, day
+  const getDateParams = () => {
+    if (period === "monthly") {
+      const [year, month] = selectedMonth.split("-").map(Number);
+      return { year, month, day: undefined };
+    } else {
+      const [year, month, day] = selectedDate.split("-").map(Number);
+      return { year, month, day };
+    }
+  };
+
+  const dateParams = getDateParams();
 
   const {
     data,
@@ -121,7 +160,7 @@ export default function NewsPage() {
     isLoading,
     isError,
   } = useInfiniteQuery({
-    queryKey: ["news", period, category, source],
+    queryKey: ["news", period, category, source, selectedDate, selectedMonth],
     queryFn: ({ pageParam = 1 }) =>
       fetchNews({
         period,
@@ -129,6 +168,9 @@ export default function NewsPage() {
         source,
         page: pageParam,
         limit: 20,
+        year: dateParams.year,
+        month: dateParams.month,
+        day: dateParams.day,
       }),
     getNextPageParam: (lastPage) => {
       const { page, totalPages } = lastPage.data.pagination;
@@ -161,29 +203,23 @@ export default function NewsPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  const allArticles = data?.pages.flatMap((page) => page.data.articles) || [];
-  const periodInfo = data?.pages[0]?.data.period;
+  const allArticles = data?.pages.flatMap((page) => page.data?.articles || []) || [];
+  const totalCount = data?.pages[0]?.data?.pagination?.total || 0;
+
+  // 모바일에서 기본으로 보여줄 카테고리 개수
+  const MOBILE_CATEGORY_LIMIT = 3;
+  const categoryEntries = Object.entries(categoryMap);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">기사 트렌드</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            AI가 요약한 쇼핑 트렌드 기사 랭킹
-          </p>
-          {periodInfo && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {format(new Date(periodInfo.startedAt), "yyyy년 MM월 dd일")} 기준
-            </p>
-          )}
-        </div>
+      <main className="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6">기사 트렌드</h1>
 
         {/* Filters */}
-        <div className="space-y-4 mb-6">
-          {/* Period Toggle */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          {/* Period Filter */}
           <div className="flex gap-2">
             <Button
               variant={period === "daily" ? "default" : "outline"}
@@ -202,7 +238,7 @@ export default function NewsPage() {
           </div>
 
           {/* Source Filter */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant={source === "all" ? "default" : "outline"}
               size="sm"
@@ -226,48 +262,8 @@ export default function NewsPage() {
             </Button>
           </div>
 
-          {/* Category Filter (Collapsible on mobile) */}
-          <div className="sm:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-              className="w-full justify-between"
-            >
-              카테고리: {category ? categoryMap[category] || category : "전체"}
-              <span>{isCategoryOpen ? "▲" : "▼"}</span>
-            </Button>
-            {isCategoryOpen && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  variant={!category ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setCategory(undefined);
-                    setIsCategoryOpen(false);
-                  }}
-                >
-                  전체
-                </Button>
-                {Object.entries(categoryMap).map(([key, name]) => (
-                  <Button
-                    key={key}
-                    variant={category === key ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setCategory(key);
-                      setIsCategoryOpen(false);
-                    }}
-                  >
-                    {name}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Category Filter (Desktop) */}
-          <div className="hidden sm:flex flex-wrap gap-2">
+          {/* Category Filter */}
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant={!category ? "default" : "outline"}
               size="sm"
@@ -275,17 +271,86 @@ export default function NewsPage() {
             >
               전체
             </Button>
-            {Object.entries(categoryMap).map(([key, name]) => (
-              <Button
-                key={key}
-                variant={category === key ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCategory(key)}
-              >
-                {name}
-              </Button>
-            ))}
+            {/* Desktop: show all categories */}
+            <div className="hidden sm:flex gap-2 flex-wrap">
+              {categoryEntries.map(([key, name]) => (
+                <Button
+                  key={key}
+                  variant={category === key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCategory(key)}
+                >
+                  {name}
+                </Button>
+              ))}
+            </div>
+            {/* Mobile: limited categories + show more */}
+            <div className="flex sm:hidden gap-2 flex-wrap">
+              {categoryEntries
+                .slice(0, isCategoryOpen ? undefined : MOBILE_CATEGORY_LIMIT)
+                .map(([key, name]) => (
+                  <Button
+                    key={key}
+                    variant={category === key ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCategory(key)}
+                  >
+                    {name}
+                  </Button>
+                ))}
+              {categoryEntries.length > MOBILE_CATEGORY_LIMIT && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                  className="text-muted-foreground"
+                >
+                  {isCategoryOpen ? "접기 ▲" : `+${categoryEntries.length - MOBILE_CATEGORY_LIMIT}개 더보기`}
+                </Button>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Date Selector & Count */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            {period === "monthly" ? (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                max={getCurrentMonthString()}
+                className="text-sm px-3 py-2 border rounded-lg bg-background hover:bg-muted transition-colors cursor-pointer"
+              />
+            ) : (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                max={getTodayString()}
+                className="text-sm px-3 py-2 border rounded-lg bg-background hover:bg-muted transition-colors cursor-pointer"
+              />
+            )}
+          </div>
+          {totalCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              총 {totalCount.toLocaleString()}개 기사
+            </p>
+          )}
         </div>
 
         {/* Loading State */}

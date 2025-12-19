@@ -11,6 +11,17 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
+    // Date parameters for specific period lookup
+    const year = searchParams.get("year")
+      ? parseInt(searchParams.get("year")!)
+      : undefined;
+    const month = searchParams.get("month")
+      ? parseInt(searchParams.get("month")!)
+      : undefined;
+    const day = searchParams.get("day")
+      ? parseInt(searchParams.get("day")!)
+      : undefined;
+
     // Map period string to PeriodType
     const periodTypeMap: Record<string, PeriodType> = {
       daily: "DAILY",
@@ -18,11 +29,28 @@ export async function GET(request: NextRequest) {
     };
     const periodType = periodTypeMap[period] || "DAILY";
 
-    // Find the latest ranking period
-    const rankingPeriod = await prisma.articleRankingPeriod.findFirst({
-      where: { periodType },
-      orderBy: { startedAt: "desc" },
-    });
+    // Find ranking period - either by specific date or latest
+    let rankingPeriod;
+    if (year && month) {
+      // Look for specific period
+      rankingPeriod = await prisma.articleRankingPeriod.findFirst({
+        where: {
+          periodType,
+          year,
+          month,
+          ...(periodType === "DAILY" && day ? { day } : {}),
+        },
+        orderBy: { startedAt: "desc" },
+      });
+    }
+
+    // If no specific period found, get the latest
+    if (!rankingPeriod) {
+      rankingPeriod = await prisma.articleRankingPeriod.findFirst({
+        where: { periodType },
+        orderBy: { startedAt: "desc" },
+      });
+    }
 
     // Build article filter
     const articleWhere: any = { isActive: true };

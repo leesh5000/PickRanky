@@ -195,7 +195,7 @@ export default function RankingsPage() {
 
   // Flatten all pages into a single array
   const rankings: RankingItem[] =
-    data?.pages.flatMap((page) => page.data.rankings) || [];
+    data?.pages.flatMap((page) => page.data?.rankings || []) || [];
   const totalCount = data?.pages[0]?.data?.pagination?.total || 0;
 
   const handleFilterChange = (
