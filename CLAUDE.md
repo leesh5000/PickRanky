@@ -62,48 +62,6 @@ Note: On Windows, `predev` script may not run automatically. Run `npm run db:gen
 - `src/hooks/useFormPersist.ts` - localStorage-based form persistence with debouncing
 - `src/hooks/useCategories.ts` - Category fetching hook with React Query
 
-### Trend Data Collection
-
-Multi-source trend keyword collection system:
-
-**Search Trend Sources:**
-- `src/lib/trends/naver-datalab.ts` - Naver DataLab API (requires API keys)
-- `src/lib/trends/google-trends.ts` - Google Trends RSS feed (`https://trends.google.com/trending/rss?geo=KR`)
-- `src/lib/trends/zum-crawler.ts` - Zum homepage crawler (extracts from `window.__INITIAL_STATE__`)
-- `src/lib/trends/daum-crawler.ts` - Daum (non-functional: 투데이 버블 requires JS rendering)
-
-**Community Crawlers:**
-- `src/lib/trends/dcinside-crawler.ts` - DC Inside 실시간 베스트 (`gall.dcinside.com/board/lists/?id=dcbest`)
-- `src/lib/trends/fmkorea-crawler.ts` - FM Korea 인기글 (`www.fmkorea.com/best`)
-- `src/lib/trends/theqoo-crawler.ts` - TheQoo HOT (`theqoo.net/hot`)
-
-**Key Components:**
-- `src/lib/trends/matcher.ts` - Matches trend keywords to products (name similarity, category matching)
-- `src/lib/trends/keyword-cluster.ts` - Similarity-based keyword clustering (Jaro-Winkler + N-gram)
-- `src/app/admin/trends/page.tsx` - Admin trend management UI
-
-**Clustering System:**
-- Groups similar keywords from different sources using similarity threshold (default: 0.7)
-- Uses combined Jaro-Winkler and N-gram similarity for better matching
-- Cross-source bonus applied when keyword appears in multiple sources
-- Models: `TrendKeywordCluster`, `TrendKeywordClusterMember`
-
-**Data Flow:**
-1. Collection job fetches trending keywords from enabled sources
-2. Keywords normalized and saved to `TrendKeyword` table
-3. Metrics (search volume, rank) saved to `TrendMetric` table
-4. Clustering groups similar keywords via `TrendKeywordCluster`
-5. Matcher associates keywords with products via `TrendProductMatch`
-
-**Environment Variables:**
-- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API
-- `GOOGLE_TRENDS_ENABLED` - Enable Google Trends RSS collection
-- `ZUM_CRAWLING_ENABLED` - Enable Zum homepage crawling
-- `DCINSIDE_CRAWLING_ENABLED` - Enable DC Inside 실시간 베스트 crawling
-- `FMKOREA_CRAWLING_ENABLED` - Enable FM Korea 인기글 crawling
-- `THEQOO_CRAWLING_ENABLED` - Enable TheQoo HOT crawling
-- `CLUSTER_SIMILARITY_THRESHOLD` - Minimum similarity for clustering (default: 0.7)
-
 ### Article Trends System
 
 AI-summarized news article collection and ranking system:
@@ -120,10 +78,10 @@ AI-summarized news article collection and ranking system:
 - `summarizeFromMetadata()` - Generates summary from title+description when content crawling fails
 - Summary max 300 chars, Korean language
 
-**Batch Summarization:**
-- `scripts/batch-summarize.ts` - CLI script to generate summaries for articles without them
+**CLI Scripts:**
+- `npx tsx scripts/collect-articles.ts [limit]` - Manual article collection (default: 20)
+- `npx tsx scripts/batch-summarize.ts [limit]` - Generate summaries for unsummarized articles (default: 20, max: 50)
 - `/api/admin/articles/batch-summarize` - API endpoint for batch summarization (GET: stats, POST: process)
-- Usage: `npx tsx scripts/batch-summarize.ts [limit]` (default: 20, max: 50)
 
 **Ranking System:**
 - `src/lib/article/score-calculator.ts` - Article scoring (viewScore 0-50, shareScore 0-30, recencyScore 0-20)
@@ -153,28 +111,17 @@ AI-summarized news article collection and ranking system:
 - Video count bonus: 0-5 points based on number of videos
 - Final score capped at 100
 
-### Trend Score Algorithm (125 Points Max)
-
-`src/lib/trends/ranking-generator.ts` - Generates trend keyword rankings
-
-**Score Components:**
-- Base Score (0-100 points): Latest search volume from trend sources (Google Trends, Zum)
-- Recency Bonus (0-10 points): How recent the latest metric is (6h: +10, 24h: +7, 72h: +4, 1w: +2)
-- Consistency Bonus (0-10 points): Number of metrics collected (20+: +10, 10+: +7, 5+: +4, 2+: +2)
-- Product Match Bonus (0-5 points): Number of matched products (5+: +5, 3+: +3, 1+: +1)
-
-**Ranking Generation:**
-- Rankings are generated per period (DAILY, MONTHLY)
-- Previous period's ranks are compared for rank change display (UP/DOWN/NEW/SAME)
-- Admin triggers ranking generation via `/api/admin/trends/rankings`
-
 ### API Structure
 
-- `/api/*` - Public APIs (rankings, products, categories, news, trends, tracking)
-- `/api/admin/*` - Admin APIs (인증 필요, middleware에서 보호)
-- `/api/cron/*` - Vercel Cron jobs (CRON_SECRET 인증)
+- `/api/*` - Public APIs (rankings, products, categories, news, tracking)
+- `/api/admin/*` - Admin APIs (requires auth, protected by middleware)
+- `/api/cron/*` - Vercel Cron jobs (CRON_SECRET auth)
 
-API 엔드포인트 상세는 `src/app/api/` 디렉토리 구조 참고.
+**Dynamic Rendering:** API routes using `request.url` must include:
+```typescript
+export const dynamic = "force-dynamic";
+```
+Without this, Vercel build fails with "Dynamic server usage" error.
 
 ### SEO Implementation
 
@@ -224,15 +171,6 @@ Core models in `prisma/schema.prisma`:
 - `CollectionJob` - Background job status tracking
 - `SystemConfig` - Key-value system configuration
 
-**Trend Models:**
-- `TrendKeyword` - Trend keywords with source (NAVER_DATALAB, GOOGLE_TRENDS, ZUM, DAUM, DCINSIDE, FMKOREA, THEQOO, MANUAL)
-- `TrendMetric` - Search volume/rank metrics per keyword and collection time
-- `TrendProductMatch` - Keyword-to-product associations with match score
-- `TrendRankingPeriod` / `TrendKeywordRanking` - Trend keyword rankings by period
-- `TrendCollectionJob` - Trend collection job tracking
-- `TrendKeywordCluster` - Groups of similar keywords from multiple sources
-- `TrendKeywordClusterMember` - Keyword membership in clusters with similarity scores
-
 **Article Models:**
 - `Article` - News articles with source (NAVER, GOOGLE), description (RSS), AI summary, category
 - `ArticleProduct` - Article-to-product associations
@@ -263,15 +201,6 @@ Required (see `.env.example`):
 - `YOUTUBE_API_KEY` - YouTube Data API v3 (must be enabled in Google Cloud Console)
 - `NEXTAUTH_SECRET` - Random string for JWT encryption (min 32 chars)
 - `ADMIN_PASSWORD` - Admin password (plain text)
-
-Optional (Trend Collection):
-- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API keys
-- `GOOGLE_TRENDS_ENABLED` - Set to "true" to enable Google Trends RSS
-- `ZUM_CRAWLING_ENABLED` - Set to "true" to enable Zum crawling
-- `DCINSIDE_CRAWLING_ENABLED` - Set to "true" to enable DC Inside crawling
-- `FMKOREA_CRAWLING_ENABLED` - Set to "true" to enable FM Korea crawling
-- `THEQOO_CRAWLING_ENABLED` - Set to "true" to enable TheQoo crawling
-- `CLUSTER_SIMILARITY_THRESHOLD` - Similarity threshold for clustering (default: 0.7)
 
 Optional (Article Collection):
 - `GEMINI_API_KEY` - Google Gemini API key for article summarization (get from https://aistudio.google.com/app/apikey)
@@ -311,22 +240,22 @@ Use `DIRECT_URL` (port 5432) for migrations.
 
 ### PgBouncer Prepared Statement Error
 
-`prepared statement "sXX" does not exist` 에러 발생 시:
-1. `DATABASE_URL`에 `?pgbouncer=true` 파라미터가 있는지 확인
-2. 개발 서버 재시작: `pkill -f "next dev" && npm run dev`
+If `prepared statement "sXX" does not exist` error occurs:
+1. Verify `?pgbouncer=true` parameter in `DATABASE_URL`
+2. Restart dev server: `pkill -f "next dev" && npm run dev`
 
 ### Prisma Client Not Generated
 
-Windows에서 `predev` 스크립트가 자동 실행되지 않을 수 있음:
+On Windows, `predev` script may not run automatically:
 ```bash
 npm run db:generate
 ```
 
 ### Google News RSS Crawling Fails
 
-Google News RSS URL은 JavaScript 리다이렉트라 서버에서 크롤링 실패함.
-`summarizeFromMetadata()`가 title+description으로 대체 요약 생성.
+Google News RSS URLs use JavaScript redirects, causing server-side crawling to fail.
+Fallback: `summarizeFromMetadata()` generates summary from title+description.
 
 ### Naver RSS DNS Issues (Local)
 
-로컬 환경에서 Naver RSS DNS 이슈 발생 시 VPN 또는 네트워크 변경 시도.
+If Naver RSS DNS fails locally, try VPN or different network.
