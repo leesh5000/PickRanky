@@ -1,3 +1,13 @@
 {
-  "regions": ["icn1"]
+  "regions": ["icn1"],
+  "crons": [
+    {
+      "path": "/api/cron/collect-articles",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/calculate-article-rankings",
+      "schedule": "30 22 * * *"
+    }
+  ]
 }
