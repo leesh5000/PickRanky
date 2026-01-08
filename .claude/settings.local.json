@@ -20,7 +20,8 @@
       "Bash(npx tsx:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm run dev:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git push:*)"
     ]
   }
 }
