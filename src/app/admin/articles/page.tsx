@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/useCategories";
 import { formatDistanceToNow, format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -112,6 +113,27 @@ async function triggerCollection(source: ArticleSource | "ALL") {
   return res.json();
 }
 
+interface NewsSourcesConfig {
+  NAVER: boolean;
+  GOOGLE: boolean;
+}
+
+async function fetchNewsSourcesConfig(): Promise<{ success: boolean; data: NewsSourcesConfig }> {
+  const res = await fetch("/api/admin/settings/news-sources");
+  if (!res.ok) throw new Error("Failed to fetch news sources config");
+  return res.json();
+}
+
+async function updateNewsSourcesConfig(config: NewsSourcesConfig): Promise<{ success: boolean; data: NewsSourcesConfig }> {
+  const res = await fetch("/api/admin/settings/news-sources", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error("Failed to update news sources config");
+  return res.json();
+}
+
 function getStatusBadgeVariant(status: JobStatus): "default" | "secondary" | "destructive" | "outline" | "success" {
   switch (status) {
     case "COMPLETED":
@@ -175,6 +197,27 @@ export default function AdminArticlesPage() {
     enabled: showJobs,
   });
 
+  const { data: sourcesConfigData } = useQuery({
+    queryKey: ["news-sources-config"],
+    queryFn: fetchNewsSourcesConfig,
+  });
+
+  const sourcesConfig = sourcesConfigData?.data || { NAVER: true, GOOGLE: true };
+
+  const updateSourcesMutation = useMutation({
+    mutationFn: updateNewsSourcesConfig,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["news-sources-config"] });
+    },
+  });
+
+  const handleSourceToggle = (source: "NAVER" | "GOOGLE", enabled: boolean) => {
+    updateSourcesMutation.mutate({
+      ...sourcesConfig,
+      [source]: enabled,
+    });
+  };
+
   const { startCollection, status: collectionStatus } = useArticleCollectionStore();
 
   const collectMutation = useMutation({
@@ -236,6 +279,52 @@ export default function AdminArticlesPage() {
           </Link>
         </div>
       </div>
+
+      {/* 뉴스 소스 설정 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>뉴스 소스 설정</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="naver-source"
+                checked={sourcesConfig.NAVER}
+                onCheckedChange={(checked) => handleSourceToggle("NAVER", checked)}
+                disabled={updateSourcesMutation.isPending}
+              />
+              <label htmlFor="naver-source" className="text-sm font-medium cursor-pointer">
+                네이버 뉴스
+              </label>
+              {sourcesConfig.NAVER ? (
+                <Badge variant="success">활성</Badge>
+              ) : (
+                <Badge variant="secondary">비활성</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="google-source"
+                checked={sourcesConfig.GOOGLE}
+                onCheckedChange={(checked) => handleSourceToggle("GOOGLE", checked)}
+                disabled={updateSourcesMutation.isPending}
+              />
+              <label htmlFor="google-source" className="text-sm font-medium cursor-pointer">
+                구글 뉴스
+              </label>
+              {sourcesConfig.GOOGLE ? (
+                <Badge variant="success">활성</Badge>
+              ) : (
+                <Badge variant="secondary">비활성</Badge>
+              )}
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-3">
+            활성화된 소스에서만 기사를 수집합니다. 비활성화해도 기존 기사는 유지됩니다.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* 수집 히스토리 */}
       {showJobs && (

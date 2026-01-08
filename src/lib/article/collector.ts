@@ -5,6 +5,22 @@ import { fetchArticleContentWithRetry } from "./content-fetcher";
 import { summarizeArticle, summarizeFromMetadata } from "@/lib/gemini/client";
 import prisma from "@/lib/prisma";
 
+interface NewsSourcesConfig {
+  NAVER: boolean;
+  GOOGLE: boolean;
+}
+
+const NEWS_SOURCES_CONFIG_KEY = "news_sources_enabled";
+
+async function getNewsSourcesConfig(): Promise<NewsSourcesConfig> {
+  const config = await prisma.systemConfig.findUnique({
+    where: { key: NEWS_SOURCES_CONFIG_KEY },
+  });
+
+  const value = config?.value as NewsSourcesConfig | null;
+  return value || { NAVER: true, GOOGLE: true };
+}
+
 type ParsedArticle = NaverArticle | GoogleArticle;
 
 export interface CollectionResult {
@@ -59,8 +75,12 @@ export async function collectArticles(options?: CollectionOptions): Promise<Coll
     let allArticles: ParsedArticle[] = [];
     const sourceResults: Map<ArticleSource, CollectionResult> = new Map();
 
-    // 소스별 수집
-    if (source === "ALL" || source === ArticleSource.NAVER) {
+    // 뉴스 소스 설정 확인
+    const sourcesConfig = await getNewsSourcesConfig();
+    console.log("뉴스 소스 설정:", sourcesConfig);
+
+    // 소스별 수집 (설정에서 활성화된 소스만)
+    if ((source === "ALL" || source === ArticleSource.NAVER) && sourcesConfig.NAVER) {
       console.log("네이버 RSS 수집 시작...");
       const naverArticles = await fetchAllNaverRss();
       console.log(`네이버 기사 ${naverArticles.length}개 수집`);
@@ -73,9 +93,11 @@ export async function collectArticles(options?: CollectionOptions): Promise<Coll
         linkedProducts: 0,
         errors: [],
       });
+    } else if ((source === "ALL" || source === ArticleSource.NAVER) && !sourcesConfig.NAVER) {
+      console.log("네이버 RSS 수집 건너뜀 (비활성화됨)");
     }
 
-    if (source === "ALL" || source === ArticleSource.GOOGLE) {
+    if ((source === "ALL" || source === ArticleSource.GOOGLE) && sourcesConfig.GOOGLE) {
       console.log("Google News 수집 시작...");
       const googleArticles = await fetchAllGoogleNews();
       console.log(`Google 기사 ${googleArticles.length}개 수집`);
@@ -88,6 +110,8 @@ export async function collectArticles(options?: CollectionOptions): Promise<Coll
         linkedProducts: 0,
         errors: [],
       });
+    } else if ((source === "ALL" || source === ArticleSource.GOOGLE) && !sourcesConfig.GOOGLE) {
+      console.log("Google News 수집 건너뜀 (비활성화됨)");
     }
 
     // 최대 수집 개수 제한
