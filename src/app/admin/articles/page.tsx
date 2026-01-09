@@ -26,6 +26,7 @@ interface Article {
   source: "NAVER" | "GOOGLE";
   category: string | null;
   publishedAt: string;
+  collectedAt: string;
   isActive: boolean;
   createdAt: string;
   _count: {
@@ -586,6 +587,7 @@ export default function AdminArticlesPage() {
                   <th className="py-3 px-2 font-medium text-center">공유</th>
                   <th className="py-3 px-2 font-medium text-center">상품</th>
                   <th className="py-3 px-2 font-medium">발행일</th>
+                  <th className="py-3 px-2 font-medium">수집일</th>
                   <th className="py-3 px-2 font-medium">상태</th>
                   <th className="py-3 px-2"></th>
                 </tr>
@@ -624,6 +626,12 @@ export default function AdminArticlesPage() {
                     <td className="py-3 px-2 text-center">{article._count.products}</td>
                     <td className="py-3 px-2 text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(article.publishedAt), {
+                        addSuffix: true,
+                        locale: ko,
+                      })}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-muted-foreground">
+                      {formatDistanceToNow(new Date(article.collectedAt), {
                         addSuffix: true,
                         locale: ko,
                       })}
